@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Frente Oriental 1941</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<canvas id="map" aria-label="Mapa da Frente Oriental em junho de 1941"></canvas>
+
+<header class="hud title">
+  <h1>Frente Oriental</h1>
+  <p>21 de junho de 1941 · protótipo do mapa</p>
+</header>
+
+<aside class="hud info" id="info" aria-live="polite">
+  <p class="hint">Passe o mouse sobre uma região. Clique para fixar a seleção.</p>
+</aside>
+
+<aside class="hud legend" id="legend" aria-label="Legenda"></aside>
+
+<div class="hud controls">
+  <div class="zoom">
+    <button id="zin" title="Aproximar" aria-label="Aproximar">+</button>
+    <button id="zout" title="Afastar" aria-label="Afastar">−</button>
+    <button id="zreset" title="Ver tudo" aria-label="Ver tudo">⌂</button>
+  </div>
+  <div class="toggles">
+    <label><input type="checkbox" id="tBorders" checked> Bordas</label>
+    <label><input type="checkbox" id="tNames" checked> Nomes</label>
+    <label><input type="checkbox" id="tCities" checked> Cidades</label>
+    <label><input type="checkbox" id="tGrid"> Grade</label>
+  </div>
+</div>
+
+<div class="credit">Dados: Natural Earth (domínio público). Divisões atuais; fronteiras de 1941 aproximadas.</div>
+
+<noscript><p class="noscript">Este mapa precisa de JavaScript.</p></noscript>
+<script src="map.js"></script>
+</body>
+</html>
