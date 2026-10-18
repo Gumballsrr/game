@@ -6,10 +6,11 @@
   const infoEl = document.getElementById('info');
   const legendEl = document.getElementById('legend');
 
-  const opts = { borders: true, names: true, cities: true, grid: false };
+  const opts = { provinces: true, borders: true, names: true, cities: true, grid: false };
   const view = { k: 1, tx: 0, ty: 0, kfit: 1, kmin: 1, kmax: 1 };
   let W = 0, H = 0, dpr = 1;
-  let data, SC, owners, states, bgs, cities, bounds;
+  let data, SC, owners, states, provinces, bgs, cities, bounds;
+  const ownerPaths = {};   // por dono: provincias (preenchimento), bordas de estado, contorno
   let hover = null, selected = null, focusOwner = null;
   let queued = false;
 
@@ -26,7 +27,7 @@
     Georgia: 'Geórgia', Armenia: 'Armênia', Azerbaijan: 'Azerbaijão', Iran: 'Irã', Iraq: 'Iraque',
     Uzbekistan: 'Uzbequistão', Turkmenistan: 'Turcomenistão', Slovenia: 'Eslovênia',
     Montenegro: 'Montenegro', 'North Macedonia': 'Macedônia do Norte', Kosovo: 'Kosovo',
-    Syria: 'Síria', Cyprus: 'Chipre', Liechtenstein: 'Liechtenstein', Germany_: 'Alemanha',
+    Syria: 'Síria', Cyprus: 'Chipre', Liechtenstein: 'Liechtenstein',
     Mongolia: 'Mongólia', Kyrgyzstan: 'Quirguistão', Tajikistan: 'Tadjiquistão', China: 'China',
     Afghanistan: 'Afeganistão', Israel: 'Israel', Lebanon: 'Líbano', Jordan: 'Jordânia',
   };
@@ -62,11 +63,11 @@
     Moldova: 'Bessarábia, tomada da Romênia pela URSS em 1940.',
     Serbia: 'Bačka, ocupada pela Hungria em abril de 1941.',
   };
-  const NOTAS_HUN_ROM = 'Norte da Transilvânia, cedido à Hungria em agosto de 1940 (Segunda Arbitragem de Viena).';
+  const NOTA_TRANSILVANIA = 'Norte da Transilvânia, cedido à Hungria em agosto de 1940 (Segunda Arbitragem de Viena).';
 
   function nota(s) {
     if (NOTAS_NOME[s.name]) return NOTAS_NOME[s.name];
-    if (s.country === 'Romania' && s.owner === 'HUN') return NOTAS_HUN_ROM;
+    if (s.country === 'Romania' && s.owner === 'HUN') return NOTA_TRANSILVANIA;
     if (s.country === 'Hungary' || s.country === 'Finland' || s.country === 'Germany') return '';
     return NOTAS_PAIS[s.country] || '';
   }
@@ -74,15 +75,25 @@
   // ------------------------------------------------------------- geometria
   const mercY = (lat) => (180 / Math.PI) * Math.log(Math.tan(Math.PI / 4 + (lat * Math.PI) / 360));
 
+  // aneis gravados como inteiros: 1o ponto absoluto, demais = diferenca para o anterior
+  function decode(flat) {
+    const pts = new Float64Array(flat.length);
+    let x = 0, y = 0;
+    for (let i = 0; i < flat.length; i += 2) {
+      if (i === 0) { x = flat[0]; y = flat[1]; } else { x += flat[i]; y += flat[i + 1]; }
+      pts[i] = x / SC; pts[i + 1] = y / SC;
+    }
+    return pts;
+  }
+
   function build(rings) {
     const path = new Path2D();
     const list = [];
     let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
     for (const flat of rings) {
-      const pts = new Float64Array(flat.length);
-      for (let i = 0; i < flat.length; i += 2) {
-        const x = flat[i] / SC, y = flat[i + 1] / SC;
-        pts[i] = x; pts[i + 1] = y;
+      const pts = decode(flat);
+      for (let i = 0; i < pts.length; i += 2) {
+        const x = pts[i], y = pts[i + 1];
         if (x < x0) x0 = x; if (x > x1) x1 = x;
         if (y < y0) y0 = y; if (y > y1) y1 = y;
         if (i === 0) path.moveTo(x, y); else path.lineTo(x, y);
@@ -109,13 +120,11 @@
 
   function hit(sx, sy) {
     const x = (sx - view.tx) / view.k, y = (view.ty - sy) / view.k;
-    let best = null;
-    for (const s of states) {
-      const b = s.g.bbox;
+    for (const p of provinces) {
+      const b = p.g.bbox;
       if (x < b[0] || x > b[2] || y < b[1] || y > b[3]) continue;
-      if (inside(s.g.rings, x, y) && (!best || s.g.barea < best.g.barea)) best = s;
+      if (inside(p.g.rings, x, y)) return { kind: 'prov', ref: p };
     }
-    if (best) return { kind: 'state', ref: best };
     for (const b of bgs) {
       const bb = b.g.bbox;
       if (x < bb[0] || x > bb[2] || y < bb[1] || y > bb[3]) continue;
@@ -162,15 +171,17 @@
   }
 
   const dim = (code) => (focusOwner && code !== focusOwner ? 0.22 : 1);
+  const seaColor = () => getComputedStyle(document.documentElement).getPropertyValue('--sea').trim() || '#15222e';
 
   function draw() {
     queued = false;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--sea').trim() || '#15222e';
+    ctx.fillStyle = seaColor();
     ctx.fillRect(0, 0, W, H);
 
     ctx.setTransform(dpr * view.k, 0, 0, -dpr * view.k, dpr * view.tx, dpr * view.ty);
     const px = 1 / view.k;
+    ctx.lineJoin = 'round';
 
     if (opts.grid) {
       ctx.strokeStyle = 'rgba(255,255,255,0.07)'; ctx.lineWidth = px;
@@ -186,38 +197,52 @@
       ctx.fillStyle = owners[b.owner].color;
       ctx.fill(b.g.path, 'evenodd');
     }
-    // estados
-    for (const s of states) {
-      ctx.globalAlpha = dim(s.owner);
-      ctx.fillStyle = owners[s.owner].color;
-      ctx.fill(s.g.path, 'evenodd');
-      ctx.strokeStyle = owners[s.owner].color; ctx.lineWidth = 1.4 * px; // cobre frestas entre vizinhos
-      ctx.stroke(s.g.path);
+
+    // provincias: um caminho por dono (rapido)
+    const zoomRel = view.k / view.kfit;
+    const provAlpha = Math.max(0.16, Math.min(0.42, 0.16 + (zoomRel - 1) * 0.12));
+    for (const code of Object.keys(ownerPaths)) {
+      const op = ownerPaths[code], color = owners[code].color, d = dim(code);
+      ctx.globalAlpha = d;
+      ctx.fillStyle = color; ctx.fill(op.prov, 'nonzero');
+      ctx.strokeStyle = color; ctx.lineWidth = 1.2 * px; ctx.stroke(op.prov);   // cobre frestas
+      if (opts.provinces && provAlpha > 0) {
+        ctx.globalAlpha = d * (provAlpha / 0.42);
+        ctx.strokeStyle = 'rgba(10,16,22,0.5)'; ctx.lineWidth = 0.6 * px; ctx.stroke(op.prov);
+      }
     }
     // bordas dos estados
     if (opts.borders) {
-      ctx.strokeStyle = 'rgba(12,18,24,0.55)'; ctx.lineWidth = 0.7 * px; ctx.lineJoin = 'round';
-      for (const s of states) {
-        if (s.minor) continue;
-        ctx.globalAlpha = dim(s.owner);
-        ctx.stroke(s.g.path);
+      ctx.strokeStyle = 'rgba(10,16,22,0.7)'; ctx.lineWidth = 0.9 * px;
+      for (const code of Object.keys(ownerPaths)) {
+        ctx.globalAlpha = dim(code);
+        ctx.stroke(ownerPaths[code].states);
       }
     }
-    // bordas dos paises
-    ctx.strokeStyle = 'rgba(8,12,18,0.9)'; ctx.lineWidth = 1.3 * px;
-    for (const b of bgs) { ctx.globalAlpha = Math.max(0.35, dim(b.owner)); ctx.stroke(b.g.path); }
+    // contorno dos donos (fronteiras entre paises)
+    ctx.strokeStyle = 'rgba(6,10,16,0.95)'; ctx.lineWidth = 1.7 * px;
+    for (const code of Object.keys(ownerPaths)) {
+      ctx.globalAlpha = Math.max(0.35, dim(code));
+      ctx.stroke(ownerPaths[code].outline);
+    }
+    // bordas dos paises do fundo
+    ctx.strokeStyle = 'rgba(8,12,18,0.85)'; ctx.lineWidth = 1.2 * px;
+    for (const b of bgs) { if (b.inter) continue; ctx.globalAlpha = Math.max(0.3, dim(b.owner)); ctx.stroke(b.g.path); }
     ctx.globalAlpha = 1;
 
-    // destaque
-    const hl = hover && hover.kind === 'state' ? hover.ref : null;
-    if (hl) {
-      ctx.fillStyle = 'rgba(255,255,255,0.22)'; ctx.fill(hl.g.path, 'evenodd');
-      ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.6 * px; ctx.stroke(hl.g.path);
-    } else if (hover && hover.kind === 'bg') {
-      ctx.fillStyle = 'rgba(255,255,255,0.14)'; ctx.fill(hover.ref.g.path, 'evenodd');
+    // destaques
+    const hp = hover && hover.kind === 'prov' ? hover.ref : null;
+    if (hp && hp.state !== selected) {
+      ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.lineWidth = 1.5 * px; ctx.stroke(hp.state.g.path);
     }
     if (selected) {
-      ctx.strokeStyle = '#e0b73a'; ctx.lineWidth = 2.4 * px; ctx.stroke(selected.g.path);
+      ctx.strokeStyle = '#e0b73a'; ctx.lineWidth = 2.2 * px; ctx.stroke(selected.g.path);
+    }
+    if (hp) {
+      ctx.fillStyle = 'rgba(255,255,255,0.28)'; ctx.fill(hp.g.path, 'nonzero');
+      ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.2 * px; ctx.stroke(hp.g.path);
+    } else if (hover && hover.kind === 'bg') {
+      ctx.fillStyle = 'rgba(255,255,255,0.14)'; ctx.fill(hover.ref.g.path, 'evenodd');
     }
 
     drawLabels();
@@ -242,7 +267,6 @@
       ctx.fillStyle = color; ctx.fillText(t, x, y);
     };
 
-    // capitais e cidades (reservam espaco primeiro)
     if (opts.cities) {
       const showAll = view.k > view.kfit * 2.4;
       for (const c of cities) {
@@ -265,11 +289,10 @@
       }
     }
 
-    // nomes das regioes (maiores primeiro)
     if (opts.names) {
-      const list = states.filter((s) => !s.minor).sort((a, b) => b.g.barea - a.g.barea);
       ctx.font = '600 11px system-ui, sans-serif';
-      for (const s of list) {
+      for (const s of stateOrder) {
+        if (s.minor) continue;
         const b = s.g.bbox;
         const sw = (b[2] - b[0]) * view.k, sh = (b[3] - b[1]) * view.k;
         const w = textWidth(s.name);
@@ -281,51 +304,54 @@
       }
     }
   }
+  let stateOrder = [];
 
   function schedule() {
     if (!queued) { queued = true; requestAnimationFrame(draw); }
   }
 
-  // ----------------------------------------------------------- painel
+  // ----------------------------------------------------------------- painel
   const fmt = (n) => n.toLocaleString('pt-BR');
 
   function esc(s) {
     return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   }
 
+  function stateCard(s, prov) {
+    const o = owners[s.owner], n = nota(s);
+    return `<div class="row"><span class="chip" style="background:${o.color}"></span><h2>${esc(s.name)}</h2></div>` +
+      '<dl>' +
+      (prov ? `<dt>Província</dt><dd>nº ${fmt(prov.id)}</dd>` : '') +
+      `<dt>Dono em 1941</dt><dd>${esc(o.name)}</dd>` +
+      `<dt>País atual</dt><dd>${esc(pais(s.country))}</dd>` +
+      `<dt>Províncias no estado</dt><dd>${fmt(s.n)}</dd>` +
+      (s.area ? `<dt>Área</dt><dd>${fmt(s.area)} km²</dd>` : '') + '</dl>' +
+      (n ? `<p class="note">${esc(n)}</p>` : '');
+  }
+
   function updateInfo() {
-    const item = hover || (selected ? { kind: 'state', ref: selected } : null);
-    if (!item) {
-      infoEl.innerHTML = '<p class="hint">Passe o mouse sobre uma região. Clique para fixar a seleção.</p>';
-      return;
-    }
-    if (item.kind === 'state') {
-      const s = item.ref, o = owners[s.owner];
-      const n = nota(s);
-      infoEl.innerHTML =
-        `<div class="row"><span class="chip" style="background:${o.color}"></span><h2>${esc(s.name)}</h2></div>` +
-        `<dl><dt>Dono em 1941</dt><dd>${esc(o.name)}</dd>` +
-        `<dt>País atual</dt><dd>${esc(pais(s.country))}</dd>` +
-        (s.area ? `<dt>Área</dt><dd>${fmt(s.area)} km²</dd>` : '') + '</dl>' +
-        (n ? `<p class="note">${esc(n)}</p>` : '');
-    } else {
-      const b = item.ref, o = owners[b.owner];
+    if (hover && hover.kind === 'prov') { infoEl.innerHTML = stateCard(hover.ref.state, hover.ref); return; }
+    if (hover && hover.kind === 'bg') {
+      const b = hover.ref, o = owners[b.owner];
       infoEl.innerHTML =
         `<div class="row"><span class="chip" style="background:${o.color}"></span><h2>${esc(pais(b.name))}</h2></div>` +
         `<dl><dt>Situação</dt><dd>${esc(o.name)}</dd></dl>`;
+      return;
     }
+    if (selected) { infoEl.innerHTML = stateCard(selected, null); return; }
+    infoEl.innerHTML = '<p class="hint">Passe o mouse sobre uma região. Clique para fixar o estado.</p>';
   }
 
   function buildLegend() {
     const counts = {};
-    for (const s of states) if (!s.minor) counts[s.owner] = (counts[s.owner] || 0) + 1;
+    for (const p of provinces) counts[p.owner] = (counts[p.owner] || 0) + 1;
     const codes = Object.keys(owners);
     const main = codes.filter((c) => owners[c].main), rest = codes.filter((c) => !owners[c].main);
     const btn = (c) =>
       `<button type="button" data-owner="${c}" aria-pressed="false">` +
       `<span class="chip" style="background:${owners[c].color}"></span>` +
       `<span class="name">${esc(owners[c].name)}</span>` +
-      `<span class="count">${counts[c] ? counts[c] + ' reg.' : ''}</span></button>`;
+      `<span class="count">${counts[c] ? fmt(counts[c]) + ' prov.' : ''}</span></button>`;
     legendEl.innerHTML = main.map(btn).join('') + '<div class="sep"></div>' + rest.map(btn).join('');
     legendEl.addEventListener('click', (e) => {
       const b = e.target.closest('button[data-owner]');
@@ -381,7 +407,7 @@
       const same = (h && hover && h.ref === hover.ref) || (!h && !hover);
       if (!same) {
         hover = h; updateInfo(); schedule();
-        canvas.style.cursor = h && h.kind === 'state' ? 'pointer' : '';
+        canvas.style.cursor = h && h.kind === 'prov' ? 'pointer' : '';
       }
     }
   });
@@ -390,8 +416,9 @@
     const [x, y] = pos(e);
     if (drag && !drag.moved && pointers.size === 1) {
       const h = hit(x, y);
-      selected = h && h.kind === 'state' && h.ref !== selected ? h.ref : null;
-      if (e.pointerType !== 'mouse') hover = h && h.kind === 'state' ? h : null;
+      const st = h && h.kind === 'prov' ? h.ref.state : null;
+      selected = st && st !== selected ? st : null;
+      if (e.pointerType !== 'mouse') hover = h && h.kind === 'prov' ? h : null;
       updateInfo(); schedule();
     }
     pointers.delete(e.pointerId);
@@ -413,7 +440,7 @@
   document.getElementById('zin').onclick = () => zoomAt(W / 2, H / 2, 1.5);
   document.getElementById('zout').onclick = () => zoomAt(W / 2, H / 2, 1 / 1.5);
   document.getElementById('zreset').onclick = fitAll;
-  for (const [id, key] of [['tBorders', 'borders'], ['tNames', 'names'], ['tCities', 'cities'], ['tGrid', 'grid']]) {
+  for (const [id, key] of [['tProv', 'provinces'], ['tBorders', 'borders'], ['tNames', 'names'], ['tCities', 'cities'], ['tGrid', 'grid']]) {
     const el = document.getElementById(id);
     el.checked = opts[key];
     el.addEventListener('change', () => { opts[key] = el.checked; schedule(); });
@@ -422,7 +449,11 @@
     if (e.key === '+' || e.key === '=') zoomAt(W / 2, H / 2, 1.3);
     else if (e.key === '-') zoomAt(W / 2, H / 2, 1 / 1.3);
     else if (e.key === '0') fitAll();
-    else if (e.key === 'Escape') { selected = null; focusOwner = null; legendEl.querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', 'false')); updateInfo(); schedule(); }
+    else if (e.key === 'Escape') {
+      selected = null; focusOwner = null;
+      legendEl.querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', 'false'));
+      updateInfo(); schedule();
+    }
   });
   window.addEventListener('resize', resize);
 
@@ -431,12 +462,31 @@
     .then((r) => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
     .then((d) => {
       data = d; SC = d.meta.scale; owners = d.owners; bounds = d.meta.bounds;
-      states = d.states; bgs = d.background; cities = d.cities;
+      states = d.states; provinces = d.provinces; bgs = d.background; cities = d.cities;
+
       for (const s of states) s.g = build(s.rings);
+      provinces.forEach((p, i) => {
+        p.id = i + 1;
+        p.g = build(p.r);
+        p.state = states[p.s];
+        p.owner = p.state.owner;
+      });
       for (const b of bgs) b.g = build(b.rings);
+
+      // caminhos combinados por dono, para desenhar milhares de provincias de uma vez
+      for (const code of Object.keys(owners)) {
+        const prov = new Path2D(), st = new Path2D();
+        let any = false;
+        for (const p of provinces) if (p.owner === code) { prov.addPath(p.g.path); any = true; }
+        for (const s of states) if (s.owner === code) st.addPath(s.g.path);
+        if (!any) continue;
+        ownerPaths[code] = { prov, states: st, outline: build(d.outlines[code] || []).path };
+      }
+      stateOrder = states.slice().sort((a, b) => b.g.barea - a.g.barea);
+
       buildLegend();
       resize();
-      window.__map = { view, states, fitAll, hit, get hover() { return hover; } };
+      window.__map = { view, states, provinces, fitAll, hit, get hover() { return hover; } };
     })
     .catch((err) => {
       infoEl.innerHTML = '<p class="hint">Não foi possível carregar o mapa (' + esc(err.message) +

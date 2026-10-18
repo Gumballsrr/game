@@ -1,0 +1,12 @@
+{
+  "_comentario": "Quantas provincias cada dono tem NESTE MAPA (area da Alemanha ate os Urais). Valor null = usa a densidade abaixo (estimativa provisoria, nao e o numero do HOI4). Para usar os numeros reais do HOI4, rode tools/count_hoi4_provinces.py e preencha aqui.",
+  "density_km2_per_province": 2500,
+  "targets": {
+    "GER": null,
+    "SOV": null,
+    "ROM": null,
+    "FIN": null,
+    "HUN": null,
+    "AXM": null
+  }
+}
