@@ -1,5 +1,5 @@
 :root {
-  --sea: #15222e;
+  --sea: #efefef;
   --panel: rgba(14, 22, 31, 0.9);
   --line: #2b3d4f;
   --text: #e8eef3;
@@ -120,7 +120,7 @@ html, body {
   right: var(--gap);
   bottom: 4px;
   font-size: 11px;
-  color: var(--muted);
+  color: #555;
   pointer-events: none;
   text-align: center;
 }

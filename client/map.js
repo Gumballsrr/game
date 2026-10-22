@@ -176,7 +176,12 @@
   }
 
   const dim = (code) => (focusOwner && code !== focusOwner ? 0.22 : 1);
-  const seaColor = () => getComputedStyle(document.documentElement).getPropertyValue('--sea').trim() || '#15222e';
+  const seaColor = () => '#efefef';
+  // cores de paises de contexto, como no HOI4
+  const BG_COLORS = { ITA:'#55a24e', BGR:'#2f9a00', SVK:'#8fd694', HRV:'#7fb87a', ALB:'#a8327d', SWE:'#2aa6ff', NOR:'#5e3a3a',
+    DNK:'#c4967a', FRA:'#4d79f0', NLD:'#ffb060', BEL:'#ffd800', GRC:'#6ee3ff', SRB:'#5a5aa8', SVN:'#5a5aa8', BIH:'#5a5aa8',
+    MNE:'#5a5aa8', MKD:'#5a5aa8', KOS:'#5a5aa8', CHE:'#e65a5a', LIE:'#e65a5a', TUR:'#c5e8b3' };
+  const bgColor = (b) => BG_COLORS[b.code] || owners[b.owner].color;
 
   function draw() {
     queued = false;
@@ -198,14 +203,14 @@
 
     // fundo (paises inteiros, contexto)
     for (const b of bgs) {
-      ctx.globalAlpha = 0.7 * dim(b.owner);
-      ctx.fillStyle = owners[b.owner].color;
+      ctx.globalAlpha = dim(b.owner);
+      ctx.fillStyle = bgColor(b);
       ctx.fill(b.g.path, 'evenodd');
     }
 
     // provincias: um caminho por dono (rapido)
     const zoomRel = view.k / view.kfit;
-    const provAlpha = Math.max(0.16, Math.min(0.42, 0.16 + (zoomRel - 1) * 0.12));
+    const provAlpha = 0.42;
     for (const code of Object.keys(ownerPaths)) {
       const op = ownerPaths[code], color = owners[code].color, d = dim(code);
       ctx.globalAlpha = d;
@@ -213,36 +218,35 @@
       ctx.strokeStyle = color; ctx.lineWidth = 1.2 * px; ctx.stroke(op.prov);   // cobre frestas
       if (opts.provinces && provAlpha > 0) {
         ctx.globalAlpha = d * (provAlpha / 0.42);
-        ctx.strokeStyle = 'rgba(10,16,22,0.5)'; ctx.lineWidth = 0.6 * px; ctx.stroke(op.prov);
+        ctx.strokeStyle = '#000'; ctx.lineWidth = 0.75 * px; ctx.stroke(op.prov);
       }
       if (opts.cities && op.city) {                      // cidades: provincias pequenas, levemente mais claras
         ctx.globalAlpha = d;
-        ctx.fillStyle = 'rgba(255,255,255,0.2)'; ctx.fill(op.city, 'nonzero');
-        ctx.strokeStyle = 'rgba(10,16,22,0.75)'; ctx.lineWidth = 1.0 * px; ctx.stroke(op.city);
+        ctx.strokeStyle = '#000'; ctx.lineWidth = 1.0 * px; ctx.stroke(op.city);
       }
     }
     // bordas dos estados
     if (opts.borders) {
-      ctx.strokeStyle = 'rgba(10,16,22,0.7)'; ctx.lineWidth = 0.9 * px;
+      ctx.strokeStyle = '#000'; ctx.lineWidth = 1.1 * px;
       for (const code of Object.keys(ownerPaths)) {
         ctx.globalAlpha = dim(code);
         ctx.stroke(ownerPaths[code].states);
       }
     }
     // contorno dos donos (fronteiras entre paises)
-    ctx.strokeStyle = 'rgba(6,10,16,0.95)'; ctx.lineWidth = 1.7 * px;
+    ctx.strokeStyle = '#000'; ctx.lineWidth = 1.6 * px;
     for (const code of Object.keys(ownerPaths)) {
       ctx.globalAlpha = Math.max(0.35, dim(code));
       ctx.stroke(ownerPaths[code].outline);
     }
     // bordas dos paises do fundo
-    ctx.strokeStyle = 'rgba(8,12,18,0.85)'; ctx.lineWidth = 1.2 * px;
+    ctx.strokeStyle = '#000'; ctx.lineWidth = 0.9 * px;
     for (const b of bgs) { if (b.inter) continue; ctx.globalAlpha = Math.max(0.3, dim(b.owner)); ctx.stroke(b.g.path); }
     ctx.globalAlpha = 1;
 
     // capitais: contorno dourado na propria provincia (sem pino)
     if (opts.cities) {
-      ctx.strokeStyle = '#f3c969'; ctx.lineWidth = 1.8 * px;
+      ctx.strokeStyle = '#000'; ctx.lineWidth = 2.2 * px;
       for (const code of Object.keys(ownerPaths)) {
         if (!ownerPaths[code].cap) continue;
         ctx.globalAlpha = dim(code); ctx.stroke(ownerPaths[code].cap);
@@ -280,11 +284,16 @@
       placed.push([x, y, x + w, y + h]);
       return true;
     };
-    const text = (t, x, y, size, weight, color) => {
+    const lightFill = (code) => {                      // fundo claro -> texto escuro
+      const h = owners[code].color, v = parseInt(h.slice(1), 16);
+      return (0.299 * (v >> 16) + 0.587 * ((v >> 8) & 255) + 0.114 * (v & 255)) > 150;
+    };
+    const text = (t, x, y, size, weight, owner, cap) => {
+      const light = lightFill(owner);
       ctx.font = `${weight} ${size}px system-ui, sans-serif`;
-      ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(8,14,20,0.8)';
+      ctx.lineWidth = 3; ctx.strokeStyle = light ? 'rgba(255,255,255,0.85)' : 'rgba(0,0,0,0.75)';
       ctx.strokeText(t, x, y);
-      ctx.fillStyle = color; ctx.fillText(t, x, y);
+      ctx.fillStyle = light ? '#111' : (cap ? '#ffe9a8' : '#fff'); ctx.fillText(t, x, y);
     };
 
     if (opts.cities) {
@@ -297,7 +306,7 @@
         const size = c.k ? 12 : 11, weight = c.k ? 700 : 600;
         ctx.font = `${weight} ${size}px system-ui, sans-serif`;
         const w = textWidth(c.c) + 4;
-        if (free(x - w / 2, y - 8, w, 16)) text(c.c, x, y, size, weight, c.k ? '#ffe9a8' : '#ffffff');
+        if (free(x - w / 2, y - 8, w, 16)) text(c.c, x, y, size, weight, c.owner, c.k);
       }
     }
 
@@ -312,7 +321,7 @@
         const x = toSX(s.label[0]), y = toSY(s.label[1]);
         if (x < 0 || y < 0 || x > W || y > H) continue;
         if (dim(s.owner) < 1) continue;
-        if (free(x - w / 2 - 2, y - 7, w + 4, 14)) text(s.name, x, y, 11, 600, 'rgba(255,255,255,0.93)');
+        if (free(x - w / 2 - 2, y - 7, w + 4, 14)) text(s.name, x, y, 11, 600, s.owner, false);
       }
     }
   }

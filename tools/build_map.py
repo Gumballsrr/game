@@ -66,15 +66,15 @@ WARP = 0.20              # irregularidade das bordas (fracao do espacamento)
 
 # ----------------------------------------------------------------- donos 1941
 OWNERS = {
-    "GER": {"name": "Alemanha",       "color": "#868a92", "main": True},
-    "SOV": {"name": "União Soviética", "color": "#c0392b", "main": True},
-    "ROM": {"name": "Romênia",        "color": "#e0b73a", "main": True},
-    "FIN": {"name": "Finlândia",      "color": "#66b3e0", "main": True},
-    "HUN": {"name": "Hungria",        "color": "#4e9d5b", "main": True},
-    "AXM": {"name": "Eixo (outros)",  "color": "#a58cc4", "main": False},
-    "OCC": {"name": "Ocupado / dividido", "color": "#8c7155", "main": False},
-    "NEU": {"name": "Neutros / outros", "color": "#b9a77f", "main": False},
-    "OUT": {"name": "Fora do mapa (Ásia)", "color": "#33414f", "main": False},
+    "GER": {"name": "Alemanha",       "color": "#4f4f4f", "main": True},
+    "SOV": {"name": "União Soviética", "color": "#a31220", "main": True},
+    "ROM": {"name": "Romênia",        "color": "#ffff77", "main": True},
+    "FIN": {"name": "Finlândia",      "color": "#ffffff", "main": True},
+    "HUN": {"name": "Hungria",        "color": "#ffa07a", "main": True},
+    "AXM": {"name": "Eixo (outros)",  "color": "#55a24e", "main": False},
+    "OCC": {"name": "Ocupado / dividido", "color": "#b8a48c", "main": False},
+    "NEU": {"name": "Neutros / outros", "color": "#c5e8b3", "main": False},
+    "OUT": {"name": "Fora do mapa (Ásia)", "color": "#d2d5d8", "main": False},
 }
 PROVINCED = ["GER", "SOV", "ROM", "FIN", "HUN", "AXM"]   # donos que recebem provincias
 
