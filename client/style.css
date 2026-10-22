@@ -65,7 +65,7 @@ html, body {
 
 .legend {
   left: var(--gap);
-  bottom: calc(var(--gap) + 22px);
+  top: 88px;                      /* abaixo do titulo; nao cobre a Alemanha */
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -133,6 +133,8 @@ html, body {
   .legend {
     left: var(--gap);
     right: var(--gap);
+    top: auto;
+    bottom: calc(var(--gap) + 22px);
     min-width: 0;
     padding: 6px;
     flex-direction: row;
@@ -143,6 +145,6 @@ html, body {
   .legend button { padding: 3px 4px; font-size: 12px; }
   .legend .chip { width: 12px; height: 12px; }
   .legend .name { flex: none; }
-  .controls { bottom: 128px; padding: 6px; }
+  .controls { bottom: 156px; padding: 6px; }
   .toggles { display: none; }
 }

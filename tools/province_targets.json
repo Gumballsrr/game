@@ -1,12 +1,12 @@
 {
-  "_comentario": "Quantas provincias cada dono tem NESTE MAPA (area da Alemanha ate os Urais). Valor null = usa a densidade abaixo (estimativa provisoria, nao e o numero do HOI4). Para usar os numeros reais do HOI4, rode tools/count_hoi4_provinces.py e preencha aqui.",
-  "density_km2_per_province": 2500,
+  "_comentario": "Quantidade de provincias por dono neste mapa, derivada do CSV do HOI4 de 22/06/1941 (tools/derive_targets.py). So a parte europeia entra; estados cortados pela borda leste entram com fracao estimada.",
+  "equal_size": false,
   "targets": {
-    "GER": null,
-    "SOV": null,
-    "ROM": null,
-    "FIN": null,
-    "HUN": null,
-    "AXM": null
+    "GER": 392,
+    "SOV": 1607,
+    "ROM": 59,
+    "FIN": 152,
+    "HUN": 73,
+    "AXM": 14
   }
 }

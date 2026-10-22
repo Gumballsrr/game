@@ -9,7 +9,8 @@
   const opts = { provinces: true, borders: true, names: true, cities: true, grid: false };
   const view = { k: 1, tx: 0, ty: 0, kfit: 1, kmin: 1, kmax: 1 };
   let W = 0, H = 0, dpr = 1;
-  let data, SC, owners, states, provinces, bgs, cities, bounds;
+  let data, SC, owners, states, provinces, bgs, bounds, projection = 'equirectangular';
+  let cityProvs = [];      // provincias que sao cidades (nome em p.c, capital em p.k)
   const ownerPaths = {};   // por dono: provincias (preenchimento), bordas de estado, contorno
   let hover = null, selected = null, focusOwner = null;
   let queued = false;
@@ -73,7 +74,10 @@
   }
 
   // ------------------------------------------------------------- geometria
-  const mercY = (lat) => (180 / Math.PI) * Math.log(Math.tan(Math.PI / 4 + (lat * Math.PI) / 360));
+  // y do mapa para uma latitude. O mapa e equirretangular (como o do HOI4): y = latitude.
+  const projY = (lat) => (projection === 'mercator'
+    ? (180 / Math.PI) * Math.log(Math.tan(Math.PI / 4 + (lat * Math.PI) / 360))
+    : lat);
 
   // aneis gravados como inteiros: 1o ponto absoluto, demais = diferenca para o anterior
   function decode(flat) {
@@ -165,8 +169,9 @@
   // -------------------------------------------------------------- desenho
   const labelWidth = new Map();
   function textWidth(t) {
-    let w = labelWidth.get(t);
-    if (w === undefined) { w = ctx.measureText(t).width; labelWidth.set(t, w); }
+    const key = ctx.font + '|' + t;
+    let w = labelWidth.get(key);
+    if (w === undefined) { w = ctx.measureText(t).width; labelWidth.set(key, w); }
     return w;
   }
 
@@ -186,8 +191,8 @@
     if (opts.grid) {
       ctx.strokeStyle = 'rgba(255,255,255,0.07)'; ctx.lineWidth = px;
       ctx.beginPath();
-      for (let lon = 0; lon <= 60; lon += 5) { ctx.moveTo(lon, bounds[1]); ctx.lineTo(lon, bounds[3]); }
-      for (let lat = 40; lat <= 70; lat += 5) { const y = mercY(lat); ctx.moveTo(bounds[0], y); ctx.lineTo(bounds[2], y); }
+      for (let lon = Math.ceil(bounds[0] / 5) * 5; lon <= bounds[2]; lon += 5) { ctx.moveTo(lon, bounds[1]); ctx.lineTo(lon, bounds[3]); }
+      for (let lat = 40; lat <= 70; lat += 5) { const y = projY(lat); ctx.moveTo(bounds[0], y); ctx.lineTo(bounds[2], y); }
       ctx.stroke();
     }
 
@@ -210,6 +215,11 @@
         ctx.globalAlpha = d * (provAlpha / 0.42);
         ctx.strokeStyle = 'rgba(10,16,22,0.5)'; ctx.lineWidth = 0.6 * px; ctx.stroke(op.prov);
       }
+      if (opts.cities && op.city) {                      // cidades: provincias pequenas, levemente mais claras
+        ctx.globalAlpha = d;
+        ctx.fillStyle = 'rgba(255,255,255,0.2)'; ctx.fill(op.city, 'nonzero');
+        ctx.strokeStyle = 'rgba(10,16,22,0.75)'; ctx.lineWidth = 1.0 * px; ctx.stroke(op.city);
+      }
     }
     // bordas dos estados
     if (opts.borders) {
@@ -229,6 +239,16 @@
     ctx.strokeStyle = 'rgba(8,12,18,0.85)'; ctx.lineWidth = 1.2 * px;
     for (const b of bgs) { if (b.inter) continue; ctx.globalAlpha = Math.max(0.3, dim(b.owner)); ctx.stroke(b.g.path); }
     ctx.globalAlpha = 1;
+
+    // capitais: contorno dourado na propria provincia (sem pino)
+    if (opts.cities) {
+      ctx.strokeStyle = '#f3c969'; ctx.lineWidth = 1.8 * px;
+      for (const code of Object.keys(ownerPaths)) {
+        if (!ownerPaths[code].cap) continue;
+        ctx.globalAlpha = dim(code); ctx.stroke(ownerPaths[code].cap);
+      }
+      ctx.globalAlpha = 1;
+    }
 
     // destaques
     const hp = hover && hover.kind === 'prov' ? hover.ref : null;
@@ -268,24 +288,16 @@
     };
 
     if (opts.cities) {
-      const showAll = view.k > view.kfit * 2.4;
-      for (const c of cities) {
-        if (!c.capital && !showAll) continue;
-        const x = toSX(c.x), y = toSY(c.y);
+      const showAll = view.k > view.kfit * 3;
+      for (const c of cityProvs) {
+        if (!c.k && !showAll) continue;              // longe: so as capitais
+        if (dim(c.owner) < 1) continue;
+        const x = toSX(c.l[0]), y = toSY(c.l[1]);
         if (x < -40 || y < -20 || x > W + 40 || y > H + 20) continue;
-        ctx.globalAlpha = dim(c.owner) < 1 ? 0.5 : 1;
-        ctx.fillStyle = c.capital ? '#ffffff' : '#e8eef3';
-        ctx.strokeStyle = '#0b1218'; ctx.lineWidth = 1.5;
-        ctx.beginPath();
-        if (c.capital) {
-          const r = 5;
-          ctx.moveTo(x, y - r); ctx.lineTo(x + r, y); ctx.lineTo(x, y + r); ctx.lineTo(x - r, y); ctx.closePath();
-        } else ctx.arc(x, y, 2.6, 0, Math.PI * 2);
-        ctx.fill(); ctx.stroke();
-        ctx.font = `${c.capital ? 700 : 500} ${c.capital ? 12 : 11}px system-ui, sans-serif`;
-        const w = textWidth(c.name) + 4;
-        if (free(x - w / 2, y + 7, w, 14)) text(c.name, x, y + 14, c.capital ? 12 : 11, c.capital ? 700 : 500, '#ffffff');
-        ctx.globalAlpha = 1;
+        const size = c.k ? 12 : 11, weight = c.k ? 700 : 600;
+        ctx.font = `${weight} ${size}px system-ui, sans-serif`;
+        const w = textWidth(c.c) + 4;
+        if (free(x - w / 2, y - 8, w, 16)) text(c.c, x, y, size, weight, c.k ? '#ffe9a8' : '#ffffff');
       }
     }
 
@@ -319,9 +331,12 @@
 
   function stateCard(s, prov) {
     const o = owners[s.owner], n = nota(s);
-    return `<div class="row"><span class="chip" style="background:${o.color}"></span><h2>${esc(s.name)}</h2></div>` +
+    const city = prov && prov.c;
+    return `<div class="row"><span class="chip" style="background:${o.color}"></span><h2>${esc(city ? prov.c : s.name)}</h2></div>` +
       '<dl>' +
-      (prov ? `<dt>Província</dt><dd>nº ${fmt(prov.id)}</dd>` : '') +
+      (prov ? `<dt>Província</dt><dd>nº ${fmt(prov.id)}${city ? (prov.k ? ' · capital' : ' · cidade') : ''}</dd>` : '') +
+      (city ? `<dt>Estado</dt><dd>${esc(s.name)}</dd>` : '') +
+      (prov ? `<dt>Províncias vizinhas</dt><dd>${prov.a.length}</dd>` : '') +
       `<dt>Dono em 1941</dt><dd>${esc(o.name)}</dd>` +
       `<dt>País atual</dt><dd>${esc(pais(s.country))}</dd>` +
       `<dt>Províncias no estado</dt><dd>${fmt(s.n)}</dd>` +
@@ -462,7 +477,8 @@
     .then((r) => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
     .then((d) => {
       data = d; SC = d.meta.scale; owners = d.owners; bounds = d.meta.bounds;
-      states = d.states; provinces = d.provinces; bgs = d.background; cities = d.cities;
+      states = d.states; provinces = d.provinces; bgs = d.background;
+      projection = d.meta.projection || 'equirectangular';
 
       for (const s of states) s.g = build(s.rings);
       provinces.forEach((p, i) => {
@@ -472,21 +488,27 @@
         p.owner = p.state.owner;
       });
       for (const b of bgs) b.g = build(b.rings);
+      cityProvs = provinces.filter((p) => p.c);
 
       // caminhos combinados por dono, para desenhar milhares de provincias de uma vez
       for (const code of Object.keys(owners)) {
-        const prov = new Path2D(), st = new Path2D();
+        const prov = new Path2D(), st = new Path2D(), city = new Path2D(), cap = new Path2D();
         let any = false;
-        for (const p of provinces) if (p.owner === code) { prov.addPath(p.g.path); any = true; }
+        for (const p of provinces) {
+          if (p.owner !== code) continue;
+          prov.addPath(p.g.path); any = true;
+          if (p.c) city.addPath(p.g.path);
+          if (p.k) cap.addPath(p.g.path);
+        }
         for (const s of states) if (s.owner === code) st.addPath(s.g.path);
         if (!any) continue;
-        ownerPaths[code] = { prov, states: st, outline: build(d.outlines[code] || []).path };
+        ownerPaths[code] = { prov, states: st, city, cap, outline: build(d.outlines[code] || []).path };
       }
       stateOrder = states.slice().sort((a, b) => b.g.barea - a.g.barea);
 
       buildLegend();
       resize();
-      window.__map = { view, states, provinces, fitAll, hit, get hover() { return hover; } };
+      window.__map = { view, states, provinces, cityProvs, fitAll, hit, get hover() { return hover; } };
     })
     .catch((err) => {
       infoEl.innerHTML = '<p class="hint">Não foi possível carregar o mapa (' + esc(err.message) +

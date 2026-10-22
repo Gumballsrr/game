@@ -4,7 +4,7 @@ Jogo de estratégia no navegador inspirado em Hearts of Iron IV, focado em
 **Alemanha, União Soviética, Romênia, Finlândia e Hungria**, com um modo online
 simples planejado.
 
-Estado atual: **mapa interativo** com 2.570 províncias, em **22 de junho de 1941**
+Estado atual: **mapa interativo** com 2.297 províncias, em **22 de junho de 1941**
 (início da Operação Barbarossa). Ainda não há unidades, turnos nem servidor.
 
 ## Como abrir o mapa
@@ -20,29 +20,46 @@ python3 -m http.server 8000 --directory client
 Controles: roda do mouse = zoom, arrastar = mover, clique = fixar um estado,
 clique na legenda = destacar uma facção, `+`/`-`/`0` = zoom/ver tudo, `Esc` = limpar.
 
-## Estados e províncias
+## Estados, províncias e cidades
 
 - **Estado**: região administrativa (por exemplo, "Cluj"). Cada estado tem um dono.
 - **Província**: divisão menor de um estado, que nunca cruza a fronteira do estado
-  (como no HOI4). São geradas automaticamente, com formas compactas e tamanho parecido.
+  (como no HOI4). Geradas automaticamente, com formas irregulares e tamanho parecido.
+- **Cidade**: uma mini-província (como Bucareste no HOI4), não um pino. Ela tem a
+  cidade como nome, encosta em pelo menos 2 províncias vizinhas e nenhuma vizinha ocupa
+  mais de 75% da sua borda, então nunca fica cercada por uma só província.
+  Capitais têm contorno dourado.
 
-A quantidade de províncias por dono fica em `tools/province_targets.json`.
-Valor `null` usa uma densidade provisória de 1 província a cada 2.500 km², que é
-uma **estimativa minha, não o número do HOI4**.
+O mapa usa projeção **equirretangular** (como o HOI4), então províncias do mesmo
+tamanho no jogo têm o mesmo tamanho na tela. A janela vai até 54°L (Volga/Kama): os
+Urais, o Cazaquistão e a Sibéria aparecem escuros como "Fora do mapa (Ásia)". O
+Cáucaso fica por causa de Baku.
 
-### Usar a contagem real do HOI4
+### Quantidade de províncias (igual ao HOI4)
 
-O script `tools/count_hoi4_provinces.py` lê a pasta do seu jogo (somente leitura,
-não copia nem altera nada) e conta as províncias de cada país numa data:
+Totais por dono em `tools/province_targets.json`: GER 392, SOV 1607, ROM 59, FIN 152,
+HUN 73, AXM 14. Eles vêm do CSV de contagem do HOI4 em 22/06/1941, filtrado para a
+parte europeia por `tools/derive_targets.py`. O CSV **não** é versionado (é dado do
+jogo da Paradox).
 
 ```bash
-python count_hoi4_provinces.py --game "C:\Program Files (x86)\Steam\steamapps\common\Hearts of Iron IV" --date 1941.6.22
+python tools/count_hoi4_provinces.py --game "C:\\...\\Hearts of Iron IV" --date 1941.6.22
+python3 tools/derive_targets.py hoi4_provincias_1941-6-22.csv
 ```
 
-Ele grava um `.csv` com id, nome, província e dono de cada estado. Como a URSS do
-HOI4 inclui a Sibéria e a Ásia Central (fora da janela deste mapa), os totais
-precisam ser filtrados para a parte europeia antes de entrar no
-`province_targets.json`.
+Como a densidade do próprio HOI4 muda de país para país, o tamanho médio varia até
+~1,4x entre donos (Alemanha = 1,00x, URSS 1,36x, Finlândia 1,42x). Para tamanho
+**idêntico** em todos, ponha `"equal_size": true` no `province_targets.json` e gere de
+novo (os totais passam a ser recalculados pela área).
+
+### Verificar o mapa
+
+```bash
+python3 tools/check_map.py
+```
+
+Confere totais contra o alvo, tamanho médio e variação por dono, e se toda cidade tem
+2+ vizinhas e o grafo de vizinhança é simétrico.
 
 ## Como o mapa foi feito
 
@@ -56,9 +73,9 @@ git clone --depth 1 https://github.com/nvkelso/natural-earth-vector
 python3 tools/build_map.py --src natural-earth-vector/geojson
 ```
 
-O script recorta a região (Alemanha até os Urais), projeta em Mercator, divide cada
-estado em províncias (k-means sobre uma grade de pixels) e grava
-`client/data/map.json`. Leva cerca de 1 minuto.
+O script rasteriza cada estado, posiciona as cidades como células pequenas e divide
+o resto em províncias de tamanho equilibrado (diagrama de potência com Lloyd e
+ruído nas bordas), monta o grafo de vizinhança e grava `client/data/map.json`.
 
 ### Limitações (de propósito)
 
@@ -67,6 +84,8 @@ estado em províncias (k-means sobre uma grade de pixels) e grava
   região de Murmansk) era finlandesa e aparece soviética; o sul da Eslováquia aparece
   inteiro húngaro nas regiões de Košice e Nitra.
 - Letônia e Moldávia são um estado cada (muitas subdivisões minúsculas).
+- Estados cortados pela borda leste entram com uma fração estimada no total
+  (pesos em `derive_targets.py`); são palpites meus.
 - As regras de donos estão em `owner_of()` no script e são fáceis de ajustar.
 - As províncias não têm nome nem forma histórica: são só uma malha.
 
@@ -78,7 +97,7 @@ local, coloque os arquivos convertidos em `assets/hoi4/` (ignorada pelo git).
 
 ## Próximos passos
 
-1. Vizinhança entre províncias (grafo) e movimento de divisões.
+1. Movimento de divisões usando o grafo de vizinhança (já exportado no `map.json`).
 2. Combate e turnos, ainda offline.
 3. Servidor Node.js com WebSocket e dois jogadores.
 4. Visual: bandeiras, ícones de unidades.
