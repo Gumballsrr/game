@@ -178,81 +178,143 @@
   const dim = (code) => (focusOwner && code !== focusOwner ? 0.22 : 1);
   const seaColor = () => '#efefef';
   // cores de paises de contexto, como no HOI4
-  const BG_COLORS = { ITA:'#55a24e', BGR:'#2f9a00', SVK:'#8fd694', HRV:'#7fb87a', ALB:'#a8327d', SWE:'#2aa6ff', NOR:'#5e3a3a',
-    DNK:'#c4967a', FRA:'#4d79f0', NLD:'#ffb060', BEL:'#ffd800', GRC:'#6ee3ff', SRB:'#5a5aa8', SVN:'#5a5aa8', BIH:'#5a5aa8',
-    MNE:'#5a5aa8', MKD:'#5a5aa8', KOS:'#5a5aa8', CHE:'#e65a5a', LIE:'#e65a5a', TUR:'#c5e8b3' };
+  const BG_COLORS = { ITA:'#5a8a4f', BGR:'#4f8a2c', SVK:'#7fae7a', HRV:'#6c9a68', ALB:'#8a3a6e', SWE:'#2f6f9f', NOR:'#5a3f3f',
+    DNK:'#a07f66', FRA:'#4f8a9c', NLD:'#4d5154', BEL:'#4d5154', GRC:'#5fb0c8', SRB:'#4a4a80', SVN:'#4a4a80', BIH:'#4a4a80',
+    MNE:'#4a4a80', MKD:'#4a4a80', KOS:'#4a4a80', CHE:'#a8474f', LIE:'#a8474f', TUR:'#9bb98a' };
   const bgColor = (b) => BG_COLORS[b.code] || owners[b.owner].color;
+
+  // ---------------------------------------------------------- textura procedural
+  // Terreno gerado por ruido (nao usa nenhuma textura do HOI4): relevo com luz de noroeste
+  // e manchas verde/marrom/cinza que se misturam com a cor de cada pais.
+  let tex = null;
+  function makeTexture(w, h) {
+    const c = document.createElement('canvas'); c.width = w; c.height = h;
+    const x = c.getContext('2d'); const img = x.createImageData(w, h); const d = img.data;
+    const hash = (ix, iy, s) => {
+      let n = Math.imul(ix, 374761393) + Math.imul(iy, 668265263) + Math.imul(s, 1274126177);
+      n = Math.imul(n ^ (n >>> 13), 1274126177); n ^= n >>> 16; return (n >>> 0) / 4294967295;
+    };
+    const vn = (px, py, s) => {
+      const ix = Math.floor(px), iy = Math.floor(py), fx = px - ix, fy = py - iy;
+      const u = fx * fx * (3 - 2 * fx), v = fy * fy * (3 - 2 * fy);
+      const a0 = hash(ix, iy, s), b0 = hash(ix + 1, iy, s), c0 = hash(ix, iy + 1, s), d0 = hash(ix + 1, iy + 1, s);
+      return a0 + (b0 - a0) * u + (c0 - a0) * v + (a0 - b0 - c0 + d0) * u * v;
+    };
+    const fbm = (px, py, oct, s) => { let t = 0, amp = 0.5, f = 1, n = 0; for (let o = 0; o < oct; o++) { t += amp * vn(px * f, py * f, s + o); n += amp; amp *= 0.5; f *= 2; } return t / n; };
+    const hf = new Float32Array(w * h), tn = new Float32Array(w * h);
+    for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
+      const u = i / w * 9, v = j / h * 9 * (h / w);
+      const n = fbm(u, v, 6, 11), r = 1 - Math.abs(2 * fbm(u * 1.7, v * 1.7, 4, 31) - 1);
+      hf[j * w + i] = n * 0.65 + r * 0.35;
+      tn[j * w + i] = fbm(u * 0.45 + 3, v * 0.45 + 7, 3, 71);
+    }
+    const pal = [[70, 105, 60], [118, 108, 72], [150, 140, 128]];
+    for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
+      const k = j * w + i, i0 = Math.max(0, i - 2), j0 = Math.max(0, j - 2), i1 = Math.min(w - 1, i + 2), j1 = Math.min(h - 1, j + 2);
+      const sh = (hf[j0 * w + i0] - hf[j1 * w + i1]) * 14;        // relevo
+      const t = Math.min(1, Math.max(0, (tn[k] - 0.3) * 2.6)) * 2;   // 0..2 entre as 3 cores
+      const p0 = pal[Math.min(1, Math.floor(t))], p1 = pal[Math.min(2, Math.floor(t) + 1)], f = t - Math.floor(t);
+      const lum = 0.72 + hf[k] * 0.5 + sh * 0.55;
+      for (let q = 0; q < 3; q++) d[k * 4 + q] = Math.max(0, Math.min(255, (p0[q] + (p1[q] - p0[q]) * f) * lum));
+      d[k * 4 + 3] = 255;
+    }
+    x.putImageData(img, 0, 0);
+    return c;
+  }
+
+  let layerL = null, layerM = null, lctx = null, mctx = null;
+  function ensureLayers() {
+    const w = canvas.width, h = canvas.height;
+    if (layerL && layerL.width === w && layerL.height === h) return;
+    layerL = document.createElement('canvas'); layerM = document.createElement('canvas');
+    layerL.width = layerM.width = w; layerL.height = layerM.height = h;
+    lctx = layerL.getContext('2d'); mctx = layerM.getContext('2d');
+  }
 
   function draw() {
     queued = false;
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.fillStyle = seaColor();
-    ctx.fillRect(0, 0, W, H);
+    ensureLayers();
+    if (!tex) tex = makeTexture(1280, Math.round(1280 * (bounds[3] - bounds[1]) / (bounds[2] - bounds[0])));
+    const zoomRel = view.k / view.kfit;
 
-    ctx.setTransform(dpr * view.k, 0, 0, -dpr * view.k, dpr * view.tx, dpr * view.ty);
-    const px = 1 / view.k;
-    ctx.lineJoin = 'round';
+    // mar: degrade escuro azulado
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const sg = ctx.createRadialGradient(W * 0.5, H * 0.45, 0, W * 0.5, H * 0.45, Math.max(W, H) * 0.85);
+    sg.addColorStop(0, '#27486b'); sg.addColorStop(1, '#13243a');
+    ctx.fillStyle = sg; ctx.fillRect(0, 0, W, H);
 
     if (opts.grid) {
-      ctx.strokeStyle = 'rgba(255,255,255,0.07)'; ctx.lineWidth = px;
+      ctx.setTransform(dpr * view.k, 0, 0, -dpr * view.k, dpr * view.tx, dpr * view.ty);
+      ctx.strokeStyle = 'rgba(255,255,255,0.07)'; ctx.lineWidth = 1 / view.k;
       ctx.beginPath();
       for (let lon = Math.ceil(bounds[0] / 5) * 5; lon <= bounds[2]; lon += 5) { ctx.moveTo(lon, bounds[1]); ctx.lineTo(lon, bounds[3]); }
       for (let lat = 40; lat <= 70; lat += 5) { const y = projY(lat); ctx.moveTo(bounds[0], y); ctx.lineTo(bounds[2], y); }
       ctx.stroke();
     }
 
-    // fundo (paises inteiros, contexto)
+    // ---- terra numa camada propria: cores dos paises + textura, recortada pela silhueta
+    lctx.setTransform(1, 0, 0, 1, 0, 0); lctx.globalAlpha = 1; lctx.globalCompositeOperation = 'source-over';
+    lctx.clearRect(0, 0, layerL.width, layerL.height);
+    lctx.setTransform(dpr * view.k, 0, 0, -dpr * view.k, dpr * view.tx, dpr * view.ty);
+    lctx.lineJoin = 'round';
     for (const b of bgs) {
-      ctx.globalAlpha = dim(b.owner);
-      ctx.fillStyle = bgColor(b);
-      ctx.fill(b.g.path, 'evenodd');
+      lctx.globalAlpha = dim(b.owner); lctx.fillStyle = bgColor(b); lctx.fill(b.g.path, 'evenodd');
     }
-
-    // provincias: um caminho por dono (rapido)
-    const zoomRel = view.k / view.kfit;
-    const provAlpha = 0.42;
     for (const code of Object.keys(ownerPaths)) {
-      const op = ownerPaths[code], color = owners[code].color, d = dim(code);
-      ctx.globalAlpha = d;
-      ctx.fillStyle = color; ctx.fill(op.prov, 'nonzero');
-      ctx.strokeStyle = color; ctx.lineWidth = 1.2 * px; ctx.stroke(op.prov);   // cobre frestas
-      if (opts.provinces && provAlpha > 0) {
-        ctx.globalAlpha = d * (provAlpha / 0.42);
-        ctx.strokeStyle = '#000'; ctx.lineWidth = 0.75 * px; ctx.stroke(op.prov);
+      const op = ownerPaths[code], color = owners[code].color;
+      lctx.globalAlpha = dim(code);
+      lctx.fillStyle = color; lctx.fill(op.prov, 'nonzero');
+      lctx.strokeStyle = color; lctx.lineWidth = 1.2 / view.k; lctx.stroke(op.prov);   // cobre frestas
+    }
+    lctx.globalAlpha = 1;
+    mctx.setTransform(1, 0, 0, 1, 0, 0); mctx.clearRect(0, 0, layerM.width, layerM.height); mctx.drawImage(layerL, 0, 0);
+    lctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    lctx.globalCompositeOperation = 'overlay'; lctx.globalAlpha = 0.75;
+    lctx.drawImage(tex, toSX(bounds[0]), toSY(bounds[3]), (bounds[2] - bounds[0]) * view.k, (bounds[3] - bounds[1]) * view.k);
+    lctx.globalCompositeOperation = 'destination-in'; lctx.globalAlpha = 1;
+    lctx.setTransform(1, 0, 0, 1, 0, 0); lctx.drawImage(layerM, 0, 0);
+    lctx.globalCompositeOperation = 'source-over';
+
+    // brilho de costa + terra
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.shadowColor = 'rgba(120,175,230,0.55)'; ctx.shadowBlur = 22 * dpr;
+    ctx.drawImage(layerL, 0, 0);
+    ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0;
+
+    ctx.setTransform(dpr * view.k, 0, 0, -dpr * view.k, dpr * view.tx, dpr * view.ty);
+    const px = 1 / view.k;
+    ctx.lineJoin = 'round';
+
+    // bordas das provincias (discretas, como no jogo)
+    for (const code of Object.keys(ownerPaths)) {
+      const op = ownerPaths[code], d = dim(code);
+      if (opts.provinces) {
+        ctx.globalAlpha = d; ctx.strokeStyle = 'rgba(0,0,0,0.34)'; ctx.lineWidth = 0.7 * px; ctx.stroke(op.prov);
       }
-      if (opts.cities && op.city) {                      // cidades: provincias pequenas, levemente mais claras
-        ctx.globalAlpha = d;
-        ctx.strokeStyle = '#000'; ctx.lineWidth = 1.0 * px; ctx.stroke(op.city);
+      if (opts.cities && op.city) {
+        ctx.globalAlpha = d; ctx.strokeStyle = 'rgba(0,0,0,0.5)'; ctx.lineWidth = 0.9 * px; ctx.stroke(op.city);
       }
     }
     // bordas dos estados
     if (opts.borders) {
-      ctx.strokeStyle = '#000'; ctx.lineWidth = 1.1 * px;
+      ctx.strokeStyle = 'rgba(0,0,0,0.5)'; ctx.lineWidth = 1.0 * px;
       for (const code of Object.keys(ownerPaths)) {
         ctx.globalAlpha = dim(code);
         ctx.stroke(ownerPaths[code].states);
       }
     }
     // contorno dos donos (fronteiras entre paises)
-    ctx.strokeStyle = '#000'; ctx.lineWidth = 1.6 * px;
+    ctx.strokeStyle = 'rgba(200,225,255,0.35)'; ctx.lineWidth = 3.2 * px;
+    for (const code of Object.keys(ownerPaths)) { ctx.globalAlpha = Math.max(0.35, dim(code)); ctx.stroke(ownerPaths[code].outline); }
+    ctx.strokeStyle = 'rgba(8,10,16,0.9)'; ctx.lineWidth = 1.3 * px;
     for (const code of Object.keys(ownerPaths)) {
       ctx.globalAlpha = Math.max(0.35, dim(code));
       ctx.stroke(ownerPaths[code].outline);
     }
     // bordas dos paises do fundo
-    ctx.strokeStyle = '#000'; ctx.lineWidth = 0.9 * px;
+    ctx.strokeStyle = 'rgba(8,10,16,0.75)'; ctx.lineWidth = 0.9 * px;
     for (const b of bgs) { if (b.inter) continue; ctx.globalAlpha = Math.max(0.3, dim(b.owner)); ctx.stroke(b.g.path); }
     ctx.globalAlpha = 1;
-
-    // capitais: contorno dourado na propria provincia (sem pino)
-    if (opts.cities) {
-      ctx.strokeStyle = '#000'; ctx.lineWidth = 2.2 * px;
-      for (const code of Object.keys(ownerPaths)) {
-        if (!ownerPaths[code].cap) continue;
-        ctx.globalAlpha = dim(code); ctx.stroke(ownerPaths[code].cap);
-      }
-      ctx.globalAlpha = 1;
-    }
 
     // destaques
     const hp = hover && hover.kind === 'prov' ? hover.ref : null;
@@ -286,7 +348,7 @@
     };
     const lightFill = (code) => {                      // fundo claro -> texto escuro
       const h = owners[code].color, v = parseInt(h.slice(1), 16);
-      return (0.299 * (v >> 16) + 0.587 * ((v >> 8) & 255) + 0.114 * (v & 255)) > 150;
+      return (0.299 * (v >> 16) + 0.587 * ((v >> 8) & 255) + 0.114 * (v & 255)) > 215;
     };
     const text = (t, x, y, size, weight, owner, cap) => {
       const light = lightFill(owner);
@@ -296,6 +358,46 @@
       ctx.fillStyle = light ? '#111' : (cap ? '#ffe9a8' : '#fff'); ctx.fillText(t, x, y);
     };
 
+    // nomes grandes dos paises, espacados, semitransparentes (como no jogo)
+    if (opts.names) {
+      const zr = view.k / view.kfit, fade = Math.max(0, Math.min(1, 1 - (zr - 2.5) / 2));
+      if (fade > 0) {
+        if (!ownerBox) {
+          ownerBox = {};
+          for (const s of stateOrder) {
+            if (s.minor || !s.label) continue;
+            const o = ownerBox[s.owner] || (ownerBox[s.owner] = { x0: 1e9, y0: 1e9, x1: -1e9, y1: -1e9, sx: 0, sy: 0, n: 0 });
+            o.x0 = Math.min(o.x0, s.label[0]); o.x1 = Math.max(o.x1, s.label[0]);
+            o.y0 = Math.min(o.y0, s.label[1]); o.y1 = Math.max(o.y1, s.label[1]);
+            o.sx += s.label[0]; o.sy += s.label[1]; o.n++;
+          }
+        }
+        ctx.textAlign = 'center'; ctx.lineJoin = 'round';
+        const nameBoxes = [];
+        const nameFree = (x, y, w, h) => { for (const r of nameBoxes) if (x < r[2] && x + w > r[0] && y < r[3] && y + h > r[1]) return false; nameBoxes.push([x, y, x + w, y + h]); return true; };
+        for (const code of ['SOV', 'GER', 'FIN', 'ROM', 'HUN']) {
+          const o = ownerBox[code]; if (!o || dim(code) < 1) continue;
+          const name = owners[code].name.toUpperCase();
+          const widthPx = Math.max(40, (o.x1 - o.x0) * view.k * 0.8 + 20);
+          const size = Math.max(10, Math.min(40, widthPx / (name.length * 0.95)));
+          ctx.font = `700 ${size}px system-ui, sans-serif`;
+          ctx.letterSpacing = (size * 0.18) + 'px';
+          const x = toSX(o.sx / o.n), y = toSY(o.sy / o.n);
+          const tw = ctx.measureText(name).width + 8;
+          if (!nameFree(x - tw / 2, y - size / 2, tw, size)) { ctx.letterSpacing = '0px'; continue; }
+          ctx.lineWidth = Math.max(1.5, size / 14); ctx.strokeStyle = `rgba(255,255,255,${0.55 * fade})`;
+          ctx.strokeText(name, x, y);
+          ctx.fillStyle = `rgba(0,0,0,${0.28 * fade})`; ctx.fillText(name, x, y);
+          ctx.letterSpacing = '0px';
+        }
+      }
+    }
+
+    const star = (x, y, r) => {
+      ctx.beginPath();
+      for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? r * 0.45 : r; ctx[i ? 'lineTo' : 'moveTo'](x + Math.cos(a) * rr, y + Math.sin(a) * rr); }
+      ctx.closePath();
+    };
     if (opts.cities) {
       const showAll = view.k > view.kfit * 3;
       for (const c of cityProvs) {
@@ -305,8 +407,12 @@
         if (x < -40 || y < -20 || x > W + 40 || y > H + 20) continue;
         const size = c.k ? 12 : 11, weight = c.k ? 700 : 600;
         ctx.font = `${weight} ${size}px system-ui, sans-serif`;
-        const w = textWidth(c.c) + 4;
-        if (free(x - w / 2, y - 8, w, 16)) text(c.c, x, y, size, weight, c.owner, c.k);
+        const w = textWidth(c.c) + 16;
+        if (!free(x - 8, y - 8, w, 16)) continue;
+        ctx.lineWidth = 1.4;
+        if (c.k) { star(x, y, 6.5); ctx.fillStyle = '#d6322e'; ctx.strokeStyle = '#fff'; ctx.stroke(); ctx.fill(); }
+        else { ctx.beginPath(); ctx.arc(x, y, 3, 0, 6.2832); ctx.fillStyle = '#d6322e'; ctx.strokeStyle = '#fff'; ctx.stroke(); ctx.fill(); }
+        ctx.textAlign = 'left'; text(c.c, x + 9, y, size, weight, c.owner, false); ctx.textAlign = 'center';
       }
     }
 
@@ -325,7 +431,7 @@
       }
     }
   }
-  let stateOrder = [];
+  let stateOrder = [], ownerBox = null;
 
   function schedule() {
     if (!queued) { queued = true; requestAnimationFrame(draw); }

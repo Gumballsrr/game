@@ -52,6 +52,12 @@ Como a densidade do próprio HOI4 muda de país para país, o tamanho médio var
 **idêntico** em todos, ponha `"equal_size": true` no `province_targets.json` e gere de
 novo (os totais passam a ser recalculados pela área).
 
+### Visual
+
+Estilo inspirado no mapa do HOI4, mas tudo é desenhado por código: terreno procedural
+(ruído com relevo), cores muted por país, brilho de costa, nomes grandes dos países,
+estrelas nas capitais e pontos vermelhos nas cidades. Nenhuma textura do jogo é usada.
+
 ### Verificar o mapa
 
 ```bash
