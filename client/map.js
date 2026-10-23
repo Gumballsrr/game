@@ -9,7 +9,8 @@
   const opts = { provinces: true, borders: true, names: true, cities: true, grid: false };
   const view = { k: 1, tx: 0, ty: 0, kfit: 1, kmin: 1, kmax: 1 };
   let W = 0, H = 0, dpr = 1;
-  let data, SC, owners, states, provinces, bgs, bounds, projection = 'equirectangular';
+  let data, SC, owners, states, provinces, bgs, bounds, projection = 'equirectangular', xscale = 1;
+  let riverPaths = null, lakePath = null;
   let cityProvs = [];      // provincias que sao cidades (nome em p.c, capital em p.k)
   const ownerPaths = {};   // por dono: provincias (preenchimento), bordas de estado, contorno
   let hover = null, selected = null, focusOwner = null;
@@ -222,6 +223,62 @@
     return c;
   }
 
+  const shadeCache = new Map();
+  function shade(hex, f) {
+    const key = hex + f; let r = shadeCache.get(key);
+    if (!r) { const v = parseInt(hex.slice(1), 16); r = `rgb(${((v >> 16) & 255) * f | 0},${((v >> 8) & 255) * f | 0},${(v & 255) * f | 0})`; shadeCache.set(key, r); }
+    return r;
+  }
+  // brilho da cor do pais na borda (interior fica mais escuro e com terreno), pre-renderizado uma vez
+  let glow = null, grain = null, detail = null;
+  function makeGlow(w, h) {
+    const c = document.createElement('canvas'); c.width = w; c.height = h;
+    const g = c.getContext('2d'), s = w / (bounds[2] - bounds[0]), OFF = 20000;
+    for (const code of Object.keys(ownerPaths)) {
+      const op = ownerPaths[code];
+      g.save();
+      g.setTransform(s, 0, 0, -s, -bounds[0] * s, bounds[3] * s);
+      g.clip(op.prov, 'nonzero');
+      g.setTransform(s, 0, 0, -s, -bounds[0] * s + OFF, bounds[3] * s);
+      g.shadowColor = owners[code].color; g.shadowBlur = 0.55 * s; g.shadowOffsetX = -OFF; g.shadowOffsetY = 0;
+      g.strokeStyle = '#000'; g.lineWidth = 0.7; g.lineJoin = 'round';
+      g.stroke(op.outline); g.stroke(op.outline);
+      g.restore();
+    }
+    return c;
+  }
+  // relevo de detalhe que se repete sem emendas e acompanha o mapa (aparece ao aproximar)
+  function makeDetail(n) {
+    const c = document.createElement('canvas'); c.width = c.height = n;
+    const g = c.getContext('2d'), im = g.createImageData(n, n), d = im.data;
+    const hash = (ix, iy, s) => { let h = Math.imul(ix, 374761393) + Math.imul(iy, 668265263) + Math.imul(s, 1274126177); h = Math.imul(h ^ (h >>> 13), 1274126177); h ^= h >>> 16; return (h >>> 0) / 4294967295; };
+    const vn = (px, py, per, s) => {
+      const ix = Math.floor(px), iy = Math.floor(py), fx = px - ix, fy = py - iy, u = fx * fx * (3 - 2 * fx), v = fy * fy * (3 - 2 * fy);
+      const a = hash(((ix % per) + per) % per, ((iy % per) + per) % per, s), b = hash(((ix + 1) % per + per) % per, ((iy % per) + per) % per, s);
+      const c0 = hash(((ix % per) + per) % per, ((iy + 1) % per + per) % per, s), e = hash(((ix + 1) % per + per) % per, ((iy + 1) % per + per) % per, s);
+      return a + (b - a) * u + (c0 - a) * v + (a - b - c0 + e) * u * v;
+    };
+    const hf = new Float32Array(n * n);
+    for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
+      let t = 0, amp = 0.5, per = 6, tot = 0;
+      for (let o = 0; o < 6; o++) { t += amp * vn(i / n * per, j / n * per, per, 5 + o); tot += amp; amp *= 0.55; per *= 2; }
+      hf[j * n + i] = t / tot;
+    }
+    for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
+      const k = j * n + i, sh = (hf[k] - hf[((j + 2) % n) * n + (i + 2) % n]) * 7;
+      const v = Math.max(0, Math.min(255, 128 + (hf[k] - 0.5) * 150 + sh * 90));
+      d[k * 4] = v * 0.97; d[k * 4 + 1] = v; d[k * 4 + 2] = v * 0.95; d[k * 4 + 3] = 255;
+    }
+    g.putImageData(im, 0, 0); return c;
+  }
+  function makeGrain(n) {          // pontilhado fino de floresta/neve
+    const c = document.createElement('canvas'); c.width = c.height = n;
+    const g = c.getContext('2d'), im = g.createImageData(n, n);
+    let seed = 7; const rnd = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296);
+    for (let i = 0; i < n * n; i++) { const v = rnd() < 0.18 ? 40 + rnd() * 50 : 140 + rnd() * 80; im.data.set([v, v, v, 255], i * 4); }
+    g.putImageData(im, 0, 0); return c;
+  }
+
   let layerL = null, layerM = null, lctx = null, mctx = null;
   function ensureLayers() {
     const w = canvas.width, h = canvas.height;
@@ -234,7 +291,10 @@
   function draw() {
     queued = false;
     ensureLayers();
-    if (!tex) tex = makeTexture(1280, Math.round(1280 * (bounds[3] - bounds[1]) / (bounds[2] - bounds[0])));
+    if (!tex) {
+      const th = Math.round(1280 * (bounds[3] - bounds[1]) / (bounds[2] - bounds[0]));
+      tex = makeTexture(1280, th); glow = makeGlow(1280, th); grain = makeGrain(192); detail = makeDetail(512);
+    }
     const zoomRel = view.k / view.kfit;
 
     // mar: degrade escuro azulado
@@ -247,7 +307,7 @@
       ctx.setTransform(dpr * view.k, 0, 0, -dpr * view.k, dpr * view.tx, dpr * view.ty);
       ctx.strokeStyle = 'rgba(255,255,255,0.07)'; ctx.lineWidth = 1 / view.k;
       ctx.beginPath();
-      for (let lon = Math.ceil(bounds[0] / 5) * 5; lon <= bounds[2]; lon += 5) { ctx.moveTo(lon, bounds[1]); ctx.lineTo(lon, bounds[3]); }
+      for (let lon = 5; lon <= 55; lon += 5) { const gx = lon * xscale; if (gx < bounds[0] || gx > bounds[2]) continue; ctx.moveTo(gx, bounds[1]); ctx.lineTo(gx, bounds[3]); }
       for (let lat = 40; lat <= 70; lat += 5) { const y = projY(lat); ctx.moveTo(bounds[0], y); ctx.lineTo(bounds[2], y); }
       ctx.stroke();
     }
@@ -258,19 +318,31 @@
     lctx.setTransform(dpr * view.k, 0, 0, -dpr * view.k, dpr * view.tx, dpr * view.ty);
     lctx.lineJoin = 'round';
     for (const b of bgs) {
-      lctx.globalAlpha = dim(b.owner); lctx.fillStyle = bgColor(b); lctx.fill(b.g.path, 'evenodd');
+      lctx.globalAlpha = dim(b.owner); lctx.fillStyle = shade(bgColor(b), 0.7); lctx.fill(b.g.path, 'evenodd');
     }
     for (const code of Object.keys(ownerPaths)) {
       const op = ownerPaths[code], color = owners[code].color;
       lctx.globalAlpha = dim(code);
-      lctx.fillStyle = color; lctx.fill(op.prov, 'nonzero');
-      lctx.strokeStyle = color; lctx.lineWidth = 1.2 / view.k; lctx.stroke(op.prov);   // cobre frestas
+      lctx.fillStyle = shade(color, 0.7); lctx.fill(op.prov, 'nonzero');
+      lctx.strokeStyle = shade(color, 0.7); lctx.lineWidth = 1.2 / view.k; lctx.stroke(op.prov);   // cobre frestas
     }
     lctx.globalAlpha = 1;
     mctx.setTransform(1, 0, 0, 1, 0, 0); mctx.clearRect(0, 0, layerM.width, layerM.height); mctx.drawImage(layerL, 0, 0);
     lctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     lctx.globalCompositeOperation = 'overlay'; lctx.globalAlpha = 0.75;
     lctx.drawImage(tex, toSX(bounds[0]), toSY(bounds[3]), (bounds[2] - bounds[0]) * view.k, (bounds[3] - bounds[1]) * view.k);
+    lctx.globalCompositeOperation = 'source-over'; lctx.globalAlpha = 0.9;
+    lctx.drawImage(glow, toSX(bounds[0]), toSY(bounds[3]), (bounds[2] - bounds[0]) * view.k, (bounds[3] - bounds[1]) * view.k);
+    lctx.setTransform(1, 0, 0, 1, 0, 0);
+    const dp = lctx.createPattern(detail, 'repeat');
+    dp.setTransform(new DOMMatrix([view.k * dpr * 2.2 / 512, 0, 0, view.k * dpr * 2.2 / 512, view.tx * dpr, view.ty * dpr]));
+    lctx.globalCompositeOperation = 'overlay'; lctx.globalAlpha = 0.5; lctx.fillStyle = dp;
+    lctx.fillRect(0, 0, layerL.width, layerL.height);
+    lctx.globalAlpha = 0.9; lctx.globalCompositeOperation = 'source-over';
+    const pat = lctx.createPattern(grain, 'repeat');
+    pat.setTransform(new DOMMatrix([1, 0, 0, 1, (view.tx * dpr) % 192, (view.ty * dpr) % 192]));
+    lctx.globalCompositeOperation = 'overlay'; lctx.globalAlpha = 0.3; lctx.fillStyle = pat;
+    lctx.fillRect(0, 0, layerL.width, layerL.height);
     lctx.globalCompositeOperation = 'destination-in'; lctx.globalAlpha = 1;
     lctx.setTransform(1, 0, 0, 1, 0, 0); lctx.drawImage(layerM, 0, 0);
     lctx.globalCompositeOperation = 'source-over';
@@ -283,7 +355,13 @@
 
     ctx.setTransform(dpr * view.k, 0, 0, -dpr * view.k, dpr * view.tx, dpr * view.ty);
     const px = 1 / view.k;
-    ctx.lineJoin = 'round';
+    ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+
+    // lagos
+    if (lakePath) {
+      ctx.fillStyle = '#1b3856'; ctx.fill(lakePath, 'evenodd');
+      ctx.strokeStyle = 'rgba(150,190,230,0.45)'; ctx.lineWidth = 1.3 * px; ctx.stroke(lakePath);
+    }
 
     // bordas das provincias (discretas, como no jogo)
     for (const code of Object.keys(ownerPaths)) {
@@ -315,6 +393,16 @@
     ctx.strokeStyle = 'rgba(8,10,16,0.75)'; ctx.lineWidth = 0.9 * px;
     for (const b of bgs) { if (b.inter) continue; ctx.globalAlpha = Math.max(0.3, dim(b.owner)); ctx.stroke(b.g.path); }
     ctx.globalAlpha = 1;
+
+    // rios (azul-escuro, mais grossos com o zoom)
+    if (riverPaths) {
+      const zf = Math.min(2.4, 0.75 + 0.25 * Math.sqrt(zoomRel));
+      for (const [w, wpx] of [['1', 1.1], ['2', 1.9], ['3', 3.0]]) {
+        if (!riverPaths[w]) continue;
+        ctx.strokeStyle = 'rgba(150,190,230,0.30)'; ctx.lineWidth = (wpx + 1.6) * zf * px; ctx.stroke(riverPaths[w]);
+        ctx.strokeStyle = '#15294a'; ctx.lineWidth = wpx * zf * px; ctx.stroke(riverPaths[w]);
+      }
+    }
 
     // destaques
     const hp = hover && hover.kind === 'prov' ? hover.ref : null;
@@ -603,6 +691,20 @@
         p.owner = p.state.owner;
       });
       for (const b of bgs) b.g = build(b.rings);
+      xscale = d.meta.xscale || 1;
+      riverPaths = {};
+      const wt = d.water || { rivers: {}, lakes: [] };
+      for (const w of Object.keys(wt.rivers)) {
+        const p = new Path2D();
+        for (const flat of wt.rivers[w]) { const pts = decode(flat); for (let i = 0; i < pts.length; i += 2) { if (i === 0) p.moveTo(pts[i], pts[i + 1]); else p.lineTo(pts[i], pts[i + 1]); } }
+        riverPaths[w] = p;
+      }
+      lakePath = new Path2D();
+      for (const lake of wt.lakes) for (const flat of lake) {
+        const pts = decode(flat);
+        for (let i = 0; i < pts.length; i += 2) { if (i === 0) lakePath.moveTo(pts[i], pts[i + 1]); else lakePath.lineTo(pts[i], pts[i + 1]); }
+        lakePath.closePath();
+      }
       cityProvs = provinces.filter((p) => p.c);
 
       // caminhos combinados por dono, para desenhar milhares de provincias de uma vez

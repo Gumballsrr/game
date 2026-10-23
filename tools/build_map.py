@@ -9,6 +9,8 @@ Arquivos necessarios na pasta --src:
     ne_10m_admin_1_states_provinces.geojson
     ne_10m_admin_0_countries.geojson
     ne_10m_populated_places_simple.geojson
+    ne_10m_rivers_lake_centerlines.geojson, ne_10m_rivers_europe.geojson
+    ne_10m_lakes.geojson, ne_10m_lakes_europe.geojson
 
 Dependencias: numpy, scipy, scikit-image e opencv-python.
 
@@ -55,6 +57,8 @@ MIN_RING_PX = 3.0        # descarta aneis menores que isso (pixels quadrados)
 MIN_RING_PROV_PX = 10.0
 MIN_FRAGMENT_PX = 20     # fragmentos soltos menores que isso sao anexados ao vizinho
 KM_PER_UNIT = 111.32     # km por grau no equador
+LAT0 = 52.0              # paralelo padrao: a longitude e comprimida por cos(LAT0)
+COS0 = math.cos(math.radians(LAT0))
 SEED = 1941
 
 CITY_AREA_FRAC = 0.30    # area de uma cidade-provincia, em relacao a uma provincia comum
@@ -181,11 +185,12 @@ NOMES = {
 
 # ------------------------------------------------------------------ geometria
 def project(lon, lat):
-    """Projecao do mapa: equirretangular (plate carree), como o mapa do HOI4.
-    1 grau de longitude e 1 grau de latitude medem o mesmo na tela. Assim as
-    provincias ficam com tamanho parecido de um pais para o outro; no Mercator o
-    norte e esticado e as da Finlandia pareceriam o dobro das alemas."""
-    return lon, lat
+    """Projecao do mapa: equirretangular com paralelo padrao em 52N (como o mapa do
+    HOI4 e muitos mapas da Europa). A latitude fica linear e a longitude e comprimida
+    por cos(52 graus); sem isso a Europa Oriental parece esticada na horizontal.
+    Provincias de tamanho igual na tela continuam com area parecida (so a area real
+    muda um pouco com a latitude, como no jogo)."""
+    return lon * COS0, lat
 
 
 def ring_area(pts):
@@ -335,7 +340,7 @@ class Grid:
         rows = np.arange(self.H)
         lat = self.y1 - (rows + 0.5) / R
         # km2 por pixel em cada linha (na equirretangular, a area encolhe com cos(lat))
-        self.km2_row = (KM_PER_UNIT / R) ** 2 * np.cos(np.radians(lat))
+        self.km2_row = (KM_PER_UNIT / R) ** 2 * np.cos(np.radians(lat)) / COS0
 
     def to_cv(self, ring):
         u = (ring[:, 0] - self.x0) * R - 0.5
@@ -791,6 +796,77 @@ def rebalance(P, prov_owner, prov_city, want, rng):
 
 
 # ----------------------------------------------------------------------- main
+def line_pieces(coords):
+    """Recorta uma linha (lon, lat) pela janela; devolve pedacos continuos."""
+    pieces, cur = [], []
+    for lon, lat in coords:
+        if WEST <= lon <= EAST and SOUTH <= lat <= NORTH:
+            cur.append((lon, lat))
+        else:
+            if len(cur) > 1:
+                pieces.append(cur)
+            cur = []
+    if len(cur) > 1:
+        pieces.append(cur)
+    return pieces
+
+
+def build_water(src, load):
+    """Rios e lagos do Natural Earth, projetados e simplificados."""
+    names_major = set()
+    rivers = {"3": [], "2": [], "1": []}     # 3 = grande, 2 = media, 1 = pequena
+    def add(feat, w):
+        g = feat["geometry"]
+        if not g:
+            return
+        lines = g["coordinates"] if g["type"] == "MultiLineString" else [g["coordinates"]]
+        for ln in lines:
+            for piece in line_pieces(ln):
+                arr = np.array([project(x, y) for x, y in piece])
+                if len(arr) > 2:
+                    arr = measure.approximate_polygon(arr, 0.02)
+                if len(arr) < 2:
+                    continue
+                if np.abs(np.diff(arr, axis=0)).sum() < 0.35 * COS0 and w == 1:
+                    continue
+                rivers[str(w)].append(pack([arr])[0])
+    for ft in load("ne_10m_rivers_lake_centerlines.geojson"):
+        p = ft["properties"]
+        rank = p.get("scalerank") or 9
+        if rank > 7:
+            continue
+        w = 3 if rank <= 4 else 2
+        names_major.add((p.get("name_en") or p.get("name") or "").lower())
+        add(ft, w)
+    for ft in load("ne_10m_rivers_europe.geojson"):
+        p = ft["properties"]
+        nm = (p.get("name_en") or p.get("name") or "").lower()
+        if nm in names_major:
+            continue
+        g = ft["geometry"]
+        if not g:
+            continue
+        ln = g["coordinates"] if g["type"] == "LineString" else [pt for part in g["coordinates"] for pt in part]
+        a = np.array(ln)
+        if len(a) < 2 or np.abs(np.diff(a, axis=0)).sum() < 4.0:
+            continue
+        add(ft, 1)
+    lakes = []
+    for fname, keep in (("ne_10m_lakes.geojson", lambda p: (p.get("scalerank") if p.get("scalerank") is not None else 9) <= 4),
+                        ("ne_10m_lakes_europe.geojson", lambda p: True)):
+        for ft in load(fname):
+            p = ft["properties"]
+            if not ft["geometry"] or not keep(p):
+                continue
+            nm = (p.get("name_en") or p.get("name") or "")
+            if "Caspian" in nm:
+                continue
+            rings = process_geometry(ft["geometry"], 0.02, 0.18 if "europe" in fname else 0.03)
+            if rings:
+                lakes.append(pack(rings))
+    return {"rivers": rivers, "lakes": lakes}
+
+
 def main():
     here = os.path.dirname(os.path.abspath(__file__))
     ap = argparse.ArgumentParser()
@@ -1131,12 +1207,16 @@ def main():
                 "owner": "OUT", "inter": False, "rings": pack(rings),
             })
 
+    water = build_water(args.src, load)
+    print(f"agua: {sum(len(v) for v in water['rivers'].values())} rios, {len(water['lakes'])} lagos")
+
     counts = {c: int(((owner_p == k)[1:]).sum()) for k, c in enumerate(PROVINCED, start=1)}
     data = {
         "meta": {
             "title": "Frente Oriental - início da Operação Barbarossa",
             "date": DATE,
             "projection": "equirectangular",
+            "xscale": COS0,
             "scale": SC,
             "bounds": [round(x0, 2), round(y0, 2), round(x1, 2), round(y1, 2)],
             "window": [WEST, EAST, SOUTH, NORTH],
@@ -1149,6 +1229,7 @@ def main():
         "provinces": out_provs,
         "outlines": outlines,
         "background": background,
+        "water": water,
     }
     out = os.path.abspath(args.out)
     os.makedirs(os.path.dirname(out), exist_ok=True)

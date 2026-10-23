@@ -30,8 +30,9 @@ clique na legenda = destacar uma facção, `+`/`-`/`0` = zoom/ver tudo, `Esc` = 
   mais de 75% da sua borda, então nunca fica cercada por uma só província.
   Capitais têm contorno dourado.
 
-O mapa usa projeção **equirretangular** (como o HOI4), então províncias do mesmo
-tamanho no jogo têm o mesmo tamanho na tela. A janela vai até 54°L (Volga/Kama): os
+O mapa usa projeção **equirretangular com paralelo padrão em 52°N** (a longitude é
+comprimida por cos 52°), para a Europa Oriental não ficar esticada na horizontal.
+Províncias de tamanho igual na tela têm área parecida, como no HOI4. A janela vai até 54°L (Volga/Kama): os
 Urais, o Cazaquistão e a Sibéria aparecem escuros como "Fora do mapa (Ásia)". O
 Cáucaso fica por causa de Baku.
 
@@ -56,7 +57,9 @@ novo (os totais passam a ser recalculados pela área).
 
 Estilo inspirado no mapa do HOI4, mas tudo é desenhado por código: terreno procedural
 (ruído com relevo), cores muted por país, brilho de costa, nomes grandes dos países,
-estrelas nas capitais e pontos vermelhos nas cidades. Nenhuma textura do jogo é usada.
+estrelas nas capitais, pontos vermelhos nas cidades, rios e lagos reais do Natural Earth
+(`ne_10m_rivers_lake_centerlines`, `ne_10m_rivers_europe`, `ne_10m_lakes`, `ne_10m_lakes_europe`)
+e brilho da cor do país ao longo das bordas. Nenhuma textura do jogo é usada.
 
 ### Verificar o mapa
 
