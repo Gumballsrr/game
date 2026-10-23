@@ -5,7 +5,7 @@ Jogo de estratégia no navegador inspirado em Hearts of Iron IV, focado em
 simples planejado.
 
 Estado atual: **mapa interativo** com 2.297 províncias, em **22 de junho de 1941**
-(início da Operação Barbarossa). Ainda não há unidades, turnos nem servidor.
+(início da Operação Barbarossa). Já há uma **camada de jogo offline** (unidades, movimento e combate simples). Ainda não há servidor.
 
 ## Como abrir o mapa
 
@@ -61,6 +61,18 @@ estrelas nas capitais, pontos vermelhos nas cidades, rios e lagos reais do Natur
 (`ne_10m_rivers_lake_centerlines`, `ne_10m_rivers_europe`, `ne_10m_lakes`, `ne_10m_lakes_europe`)
 e brilho da cor do país ao longo das bordas. Nenhuma textura do jogo é usada.
 
+### Jogo (offline)
+
+- Relógio de jogo a partir de 22/06/1941 (pausa com espaço, 3 velocidades).
+- Cada lado começa com divisões na frente e atrás dela (Eixo: Alemanha, Romênia, Finlândia,
+  Hungria; contra a URSS). Escolha o **Lado** no painel.
+- Clique numa província sua com unidades para selecionar e clique no destino: o caminho mais
+  curto pelo grafo de vizinhança é traçado (linha amarela). Cada província leva 2 dias.
+- Entrar numa província com inimigos gera combate diário; sem inimigos, a unidade ocupa e a
+  província muda de controlador (aparece na cor de quem a ocupa).
+- Toda a regra está em `Sim` (`client/game.js`), sem DOM nem canvas, para o servidor do modo
+  online rodar o mesmo `Sim.step()` e os clientes só enviarem ordens.
+
 ### Verificar o mapa
 
 ```bash
@@ -106,7 +118,7 @@ local, coloque os arquivos convertidos em `assets/hoi4/` (ignorada pelo git).
 
 ## Próximos passos
 
-1. Movimento de divisões usando o grafo de vizinhança (já exportado no `map.json`).
+1. Suprimento, organização e terreno no combate; IA simples para o lado não controlado.
 2. Combate e turnos, ainda offline.
 3. Servidor Node.js com WebSocket e dois jogadores.
 4. Visual: bandeiras, ícones de unidades.

@@ -11,6 +11,7 @@
   let W = 0, H = 0, dpr = 1;
   let data, SC, owners, states, provinces, bgs, bounds, projection = 'equirectangular', xscale = 1;
   let riverPaths = null, lakePath = null;
+  const hooks = (window.__hooks = window.__hooks || {});   // camada de jogo (game.js) se pluga aqui
   let cityProvs = [];      // provincias que sao cidades (nome em p.c, capital em p.k)
   const ownerPaths = {};   // por dono: provincias (preenchimento), bordas de estado, contorno
   let hover = null, selected = null, focusOwner = null;
@@ -419,6 +420,11 @@
       ctx.fillStyle = 'rgba(255,255,255,0.14)'; ctx.fill(hover.ref.g.path, 'evenodd');
     }
 
+    if (hooks.draw) {
+      ctx.save();
+      hooks.draw(ctx, { view, dpr, toSX, toSY, zoomRel: view.k / view.kfit, owners, W, H });
+      ctx.restore();
+    }
     drawLabels();
   }
 
@@ -634,6 +640,7 @@
     const [x, y] = pos(e);
     if (drag && !drag.moved && pointers.size === 1) {
       const h = hit(x, y);
+      if (hooks.click && hooks.click(h, e)) { if (e.pointerType !== 'mouse') hover = null; updateInfo(); schedule(); pointers.delete(e.pointerId); if (pointers.size === 0) { drag = null; canvas.classList.remove('dragging'); } return; }
       const st = h && h.kind === 'prov' ? h.ref.state : null;
       selected = st && st !== selected ? st : null;
       if (e.pointerType !== 'mouse') hover = h && h.kind === 'prov' ? h : null;
@@ -725,7 +732,8 @@
 
       buildLegend();
       resize();
-      window.__map = { view, states, provinces, cityProvs, fitAll, hit, get hover() { return hover; } };
+      window.__map = { view, states, provinces, cityProvs, owners, fitAll, hit, schedule, get hover() { return hover; } };
+      if (hooks.ready) hooks.ready(window.__map);
     })
     .catch((err) => {
       infoEl.innerHTML = '<p class="hint">Não foi possível carregar o mapa (' + esc(err.message) +

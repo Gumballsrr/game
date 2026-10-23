@@ -35,9 +35,22 @@
   </div>
 </div>
 
+<aside class="hud game" id="game" aria-label="Jogo">
+  <div class="gtop"><span id="gdate" class="gdate">22 jun 1941</span><span id="gspeed" class="gspeed">pausado</span></div>
+  <div class="gbtns">
+    <button id="gpause" title="Pausar (espaço)" aria-label="Pausar">⏸</button>
+    <button id="g1" title="Velocidade 1" aria-label="Velocidade 1">▶</button>
+    <button id="g2" title="Velocidade 2" aria-label="Velocidade 2">▶▶</button>
+    <button id="g3" title="Velocidade 3" aria-label="Velocidade 3">▶▶▶</button>
+  </div>
+  <label class="gside">Lado <select id="gside"></select></label>
+  <div class="gsel" id="gsel">Clique numa província sua com unidades e depois no destino.</div>
+</aside>
+
 <div class="credit">Dados: Natural Earth (domínio público). Províncias geradas automaticamente; fronteiras de 1941 aproximadas.</div>
 
 <noscript><p class="noscript">Este mapa precisa de JavaScript.</p></noscript>
 <script src="map.js"></script>
+<script src="game.js"></script>
 </body>
 </html>
