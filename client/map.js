@@ -535,7 +535,7 @@
     // Juncos
     const reeds=[
       {x:sz*0.20,y:sz*0.85},{x:sz*0.32,y:sz*0.80},{x:sz*0.48,y:sz*0.82},
-      {x:sz*0.62,y:sz*0.78},{x:sz*0.75,y:sz*0.84},{x:sz*0.55,y*sz*0.90,y:sz*0.88},
+      {x:sz*0.62,y:sz*0.78},{x:sz*0.75,y:sz*0.84},{x:sz*0.55,y:sz*0.88},
     ];
     for(const {x,y} of reeds){
       const h=sz*(0.22+Math.random()*0.18);
