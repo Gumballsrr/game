@@ -221,56 +221,56 @@
     return 'plains';
   }
 
-  // ═══════ COR DE TERRENO – estilo HOI4 ═══════
-  // HOI4: montanhas=muito mais claras (neve/altitude), floresta=escuras,
-  // pântano=azul-esverdeado, colinas=levemente escuras, estepe=quente
+  // ═══════ COR DE TERRENO – estilo HOI4 SUTIL ═══════
+  // Mantém a cor do país como base e aplica apenas uma leve modificação por terreno
+  // Máximo ±15% para preservar identidade visual do país
   function terrainFill(hexColor, terrain) {
+    if(!hexColor||!hexColor.startsWith('#')) return hexColor||'#556050';
     const v=parseInt(hexColor.slice(1),16);
+    if(isNaN(v)) return hexColor;
     let r=(v>>16)&255, g=(v>>8)&255, b=v&255;
     switch(terrain) {
-      // HOI4: montanhas são dramaticamente mais claras – branco acinzentado
+      // Montanhas: +20% luminosidade, tint frio (neve)
       case 'mountains':
-        r=Math.round(r*0.35+215*0.65);
-        g=Math.round(g*0.35+210*0.65);
-        b=Math.round(b*0.35+205*0.65);
+        r=Math.min(255,Math.round(r*0.80+255*0.20));
+        g=Math.min(255,Math.round(g*0.80+252*0.20));
+        b=Math.min(255,Math.round(b*0.80+255*0.20));
         break;
-      // colinas: levemente mais claras com tom quente
+      // Colinas: +8% luminosidade, tom levemente quente
       case 'hills':
-        r=Math.round(r*0.78+130*0.22);
-        g=Math.round(g*0.82+115*0.18);
-        b=Math.round(b*0.88+80*0.12);
+        r=Math.min(255,Math.round(r*0.92+140*0.08));
+        g=Math.min(255,Math.round(g*0.94+120*0.06));
+        b=Math.min(255,Math.round(b*0.96+ 90*0.04));
         break;
-      // floresta: mais escura com verde
+      // Floresta: -12% luminosidade, tint verde escuro
       case 'forest':
-        r=Math.round(r*0.60+10*0.40);
-        g=Math.round(g*0.65+30*0.35);
-        b=Math.round(b*0.55+12*0.45);
+        r=Math.max(0,Math.round(r*0.88+  8*0.12));
+        g=Math.max(0,Math.round(g*0.90+ 20*0.10));
+        b=Math.max(0,Math.round(b*0.90+  8*0.10));
         break;
-      // pântano: mais escuro, tint azul-esverdeado
+      // Pântano: -10% luminosidade, tint azul-esverdeado
       case 'marsh':
-        r=Math.round(r*0.58+20*0.42);
-        g=Math.round(g*0.65+55*0.35);
-        b=Math.round(b*0.62+65*0.38);
+        r=Math.max(0,Math.round(r*0.90+ 15*0.10));
+        g=Math.max(0,Math.round(g*0.92+ 45*0.08));
+        b=Math.max(0,Math.round(b*0.92+ 55*0.08));
         break;
-      // urbano: mais escuro, cinzento
+      // Urbano: -8% luminosidade, cinza sutil
       case 'urban':
-        r=Math.round(r*0.62+42*0.38);
-        g=Math.round(g*0.60+38*0.40);
-        b=Math.round(b*0.58+35*0.42);
+        r=Math.max(0,Math.round(r*0.92+ 35*0.08));
+        g=Math.max(0,Math.round(g*0.92+ 32*0.08));
+        b=Math.max(0,Math.round(b*0.92+ 30*0.08));
         break;
-      // estepe/desert: tint quente arenoso
+      // Estepe: +5% luminosidade, tint quente arenoso
       case 'desert':
-        r=Math.round(r*0.72+110*0.28);
-        g=Math.round(g*0.75+95*0.25);
-        b=Math.round(b*0.80+45*0.20);
+        r=Math.min(255,Math.round(r*0.95+100*0.05));
+        g=Math.min(255,Math.round(g*0.96+ 88*0.04));
+        b=Math.min(255,Math.round(b*0.98+ 40*0.02));
         break;
-      // planícies: cor base, levemente mais clara (como HOI4)
+      // Planícies: cor base quase sem modificação
       default:
-        r=Math.round(r*0.92+20*0.08);
-        g=Math.round(g*0.92+18*0.08);
-        b=Math.round(b*0.92+15*0.08);
+        break;
     }
-    return `rgb(${Math.min(255,r)},${Math.min(255,g)},${Math.min(255,b)})`;
+    return `rgb(${r},${g},${b})`;
   }
 
   // paths por terrain por dono
@@ -669,70 +669,44 @@
 
   // Sprites de terreno pré-renderizados (ícones individuais para estampar)
   const terrainSprites = {};
-  // Sprites maiores para estampagem
   function initTerrainTextures() {
-    terrainSprites.mountains = makeMountainIcon(80);
-    terrainSprites.forest    = makeForestIcon(64);
-    terrainSprites.hills     = makeHillsIcon(72);
-    terrainSprites.marsh     = makeMarshIcon(68);
-    terrainSprites.urban     = makeUrbanIcon(72);
-    terrainSprites.desert    = makeDesertIcon(72);
-    terrainSprites.plains    = makePlainsIcon(64);
+    try { terrainSprites.mountains = makeMountainIcon(80); } catch(e) { console.warn('mountains icon',e); }
+    try { terrainSprites.forest    = makeForestIcon(64);   } catch(e) { console.warn('forest icon',e); }
+    try { terrainSprites.hills     = makeHillsIcon(72);    } catch(e) { console.warn('hills icon',e); }
+    try { terrainSprites.marsh     = makeMarshIcon(68);    } catch(e) { console.warn('marsh icon',e); }
+    try { terrainSprites.urban     = makeUrbanIcon(72);    } catch(e) { console.warn('urban icon',e); }
+    try { terrainSprites.desert    = makeDesertIcon(72);   } catch(e) { console.warn('desert icon',e); }
+    try { terrainSprites.plains    = makePlainsIcon(64);   } catch(e) { console.warn('plains icon',e); }
   }
+
 
   // ─── RIOS NAS BORDAS DAS PROVÍNCIAS ───
   // Mapa de arestas compartilhadas que têm rio, para desenhar como bordas coloridas
   let riverBorderEdges = []; // Array de {ax,ay,bx,by} no espaço de mapa
 
   function buildRiverBorderPaths(wt, provList) {
-    // Já temos riverEdges (Set de strings "i-j") — agora precisamos
-    // encontrar os segmentos geométricos compartilhados entre as duas províncias.
     riverBorderEdges = [];
     if (!riverEdges.size) return;
-    // Para cada par com river edge, encontrar a aresta geométrica compartilhada
     for (const key of riverEdges) {
       const [ai,bi] = key.split('-').map(Number);
       const pa = provList[ai], pb = provList[bi];
       if (!pa || !pb) continue;
-      // Encontrar segmentos compartilhados nas geometrias
-      const sharedSegs = findSharedEdge(pa.g.rings, pb.g.rings);
-      for (const seg of sharedSegs) riverBorderEdges.push(seg);
+      // Linha simples entre centróides das províncias separadas pelo rio
+      riverBorderEdges.push({ x1: pa.l[0], y1: pa.l[1], x2: pb.l[0], y2: pb.l[1] });
     }
   }
 
   // Encontra segmentos de reta compartilhados entre dois polígonos
-  function findSharedEdge(ringsA, ringsB) {
-    const SNAP = 0.003; // tolerância geométrica
-    const segs = [];
-    // Coleta todos os segmentos de B num Set para lookup rápido
-    const bSegs = new Map();
-    for (const r of ringsB) {
-      const n = r.length;
-      for (let i = 0; i < n; i += 2) {
-        const x1=r[i],y1=r[i+1],x2=r[(i+2)%n],y2=r[(i+3)%n];
-        const k = segKey(x1,y1,x2,y2);
-        bSegs.set(k, {x1,y1,x2,y2});
-      }
-    }
-    for (const r of ringsA) {
-      const n = r.length;
-      for (let i = 0; i < n; i += 2) {
-        const x1=r[i],y1=r[i+1],x2=r[(i+2)%n],y2=r[(i+3)%n];
-        const k = segKey(x2,y2,x1,y1); // inverso (polígonos compartilham opostos)
-        if (bSegs.has(k)) {
-          segs.push({x1,y1,x2,y2});
-          break; // um segmento por anel é suficiente para aprox.
-        }
-      }
-    }
-    // fallback: se não achou geometria exata, usa linha entre centróides
-    return segs;
+  // Abordagem simplificada: usa linha entre centróides (sempre funciona)
+  function findSharedEdge(ringsA, ringsB, centA, centB) {
+    // Retorna um único segmento entre os centróides das duas províncias
+    if (!centA || !centB) return [];
+    return [{ x1: centA[0], y1: centA[1], x2: centB[0], y2: centB[1] }];
   }
 
-  function segKey(x1,y1,x2,y2) {
-    // round para 3 casas decimais para tolerância de snap
-    const r=(v)=>Math.round(v*500)/500;
-    return `${r(x1)},${r(y1)}|${r(x2)},${r(y2)}`;
+  function segKeyFn(x1,y1,x2,y2) {
+    const rnd=(v)=>Math.round(v*500)/500;
+    return `${rnd(x1)},${rnd(y1)}|${rnd(x2)},${rnd(y2)}`;
   }
 
   // ─── UTILIDADES DE COR ───
@@ -853,46 +827,40 @@
       (bounds[2]-bounds[0])*view.k,(bounds[3]-bounds[1])*view.k);
 
     // ── 5. Ícones quasi-3D de terreno HOI4-style ──
-    // Aparecem a partir de zoom 1.4× e ficam mais intensos com o zoom
-    if(opts.terrain && zoomRel>1.4) {
-      const fadeIn = Math.min(1,(zoomRel-1.4)/1.2);
+    // Aparecem a partir de zoom 2× – coordenadas em CSS pixels (transform dpr já cuida do DPR)
+    if(opts.terrain && zoomRel > 2.0) {
+      const fadeIn = Math.min(1,(zoomRel-2.0)/1.5);
       lctx.setTransform(dpr,0,0,dpr,0,0);
       lctx.globalCompositeOperation='source-over';
 
       for(const p of provinces){
         if(dim(p.owner)<1) continue;
+        if(p.terrain==='plains') continue; // planície não tem ícone
         const sprite = terrainSprites[p.terrain]; if(!sprite) continue;
-        const sx=toSX(p.l[0]), sy=toSY(p.l[1]);
-        if(sx<-80||sy<-80||sx>W+80||sy>H+80) continue;
+        // Coordenadas em CSS pixels
+        const sx = toSX(p.l[0]);
+        const sy = toSY(p.l[1]);
+        if(sx < -120 || sy < -120 || sx > W+120 || sy > H+120) continue;
 
-        // Escala do sprite depende do zoom e tamanho da província
-        const provScreenSize = Math.sqrt(p.g.barea)*view.k;
-        // Quantos ícones cabem na província?
-        const iconCount = p.terrain==='forest'||p.terrain==='plains' ? Math.max(1,Math.min(4,Math.floor(provScreenSize/40))) : 1;
-        const baseScale = Math.max(0.30, Math.min(1.05, provScreenSize / (sprite.width * 1.8)));
-        const alpha = fadeIn * (p.terrain==='plains'?0.22:0.78);
+        // Tamanho baseado no tamanho da província na tela
+        const provPx = Math.sqrt(p.g.barea) * view.k;
+        const iconSz = Math.max(16, Math.min(72, provPx * 0.65));
+        const alpha = fadeIn * 0.85;
         lctx.globalAlpha = alpha;
 
-        if(iconCount===1){
-          // Sprite único centrado na província
-          const sw=sprite.width*baseScale*dpr, sh=sprite.height*baseScale*dpr;
-          lctx.drawImage(sprite, sx*dpr-sw/2, sy*dpr-sh/2, sw, sh);
-        } else {
-          // Grade de ícones menores dentro da província (para florestas grandes)
-          const smallScale = baseScale * 0.65;
-          const sw=sprite.width*smallScale*dpr, sh=sprite.height*smallScale*dpr;
-          const offsets = [
-            [-provScreenSize*0.22*dpr,-provScreenSize*0.18*dpr],
-            [ provScreenSize*0.20*dpr,-provScreenSize*0.15*dpr],
-            [-provScreenSize*0.18*dpr, provScreenSize*0.20*dpr],
-            [ provScreenSize*0.22*dpr, provScreenSize*0.18*dpr],
-          ].slice(0,iconCount);
-          for(const [dx,dy] of offsets){
-            lctx.drawImage(sprite, sx*dpr+dx-sw/2, sy*dpr+dy-sh/2, sw, sh);
-          }
+        // Ícone único centrado no centróide da província
+        lctx.drawImage(sprite, sx - iconSz/2, sy - iconSz/2, iconSz, iconSz);
+
+        // Florestas e planícies grandes ganham ícones extras nos cantos
+        if((p.terrain==='forest') && provPx > 60) {
+          const off = iconSz * 0.7;
+          const smallSz = iconSz * 0.55;
+          lctx.globalAlpha = alpha * 0.7;
+          lctx.drawImage(sprite, sx - off - smallSz/2, sy - smallSz/2, smallSz, smallSz);
+          lctx.drawImage(sprite, sx + off - smallSz/2, sy - smallSz/2, smallSz, smallSz);
         }
       }
-      lctx.globalAlpha=1;
+      lctx.globalAlpha = 1;
     }
 
     lctx.globalCompositeOperation='source-over'; lctx.globalAlpha=1;
@@ -965,35 +933,30 @@
       }
     }
 
-    // Rios – desenhados NAS BORDAS das províncias (não como paths flutuantes)
-    if(riverBorderEdges.length>0){
-      const riverWidth = Math.max(1.2, Math.min(4.0, zoomRel*0.9)) * px;
-      // Halo azul claro
-      ctx.strokeStyle='rgba(130,185,235,0.55)';
-      ctx.lineWidth=riverWidth*2.8;
-      ctx.lineCap='round';
-      for(const {x1,y1,x2,y2} of riverBorderEdges){
-        ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
-      }
-      // Linha central escura
-      ctx.strokeStyle='rgba(24,62,105,0.88)';
-      ctx.lineWidth=riverWidth;
-      for(const {x1,y1,x2,y2} of riverBorderEdges){
-        ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
-      }
-      // Brilho (linha branca fina no centro)
-      ctx.strokeStyle='rgba(190,230,255,0.30)';
-      ctx.lineWidth=riverWidth*0.35;
-      for(const {x1,y1,x2,y2} of riverBorderEdges){
-        ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
-      }
-    } else if(riverPaths){
-      // Fallback: rios como paths GeoJSON se bordas não foram detectadas
-      const zf=Math.min(2.0,0.7+0.15*Math.sqrt(zoomRel));
-      for(const [w,wpx] of [['1',0.8],['2',1.5],['3',2.4]]){
+    // Rios – GeoJSON paths com visual HOI4 (halo + linha escura + brilho)
+    if(riverPaths){
+      const zf = Math.min(2.2, 0.8 + 0.18*Math.sqrt(zoomRel));
+      ctx.lineCap='round'; ctx.lineJoin='round';
+      // Camada 1: halo azul claro externo
+      for(const [w,wpx] of [['1',0.7],['2',1.3],['3',2.2]]){
         if(!riverPaths[w]) continue;
-        ctx.strokeStyle='rgba(130,185,235,0.45)'; ctx.lineWidth=(wpx+1.4)*zf*px; ctx.stroke(riverPaths[w]);
-        ctx.strokeStyle='rgba(24,62,105,0.88)'; ctx.lineWidth=wpx*zf*px; ctx.stroke(riverPaths[w]);
+        ctx.strokeStyle='rgba(110,175,235,0.38)';
+        ctx.lineWidth=(wpx+2.0)*zf*px;
+        ctx.stroke(riverPaths[w]);
+      }
+      // Camada 2: linha central azul escura (cor HOI4)
+      for(const [w,wpx] of [['1',0.7],['2',1.3],['3',2.2]]){
+        if(!riverPaths[w]) continue;
+        ctx.strokeStyle='rgba(32,68,130,0.90)';
+        ctx.lineWidth=wpx*zf*px;
+        ctx.stroke(riverPaths[w]);
+      }
+      // Camada 3: brilho branco fino centralizado
+      for(const [w,wpx] of [['1',0.7],['2',1.3],['3',2.2]]){
+        if(!riverPaths[w]) continue;
+        ctx.strokeStyle='rgba(200,235,255,0.22)';
+        ctx.lineWidth=wpx*zf*px*0.3;
+        ctx.stroke(riverPaths[w]);
       }
     }
 
