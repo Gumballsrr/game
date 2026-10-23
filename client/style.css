@@ -1,11 +1,22 @@
+/* ════════════════════════════════════════════════════
+   Estilo HOI4 (Hearts of Iron IV) – Frente Oriental 1941
+   ════════════════════════════════════════════════════ */
+
+@import url('https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;600;700&family=Barlow+Condensed:wght@400;500;600;700&display=swap');
+
 :root {
-  --sea: #13243a;
-  --panel: rgba(14, 22, 31, 0.9);
-  --line: #2b3d4f;
-  --text: #e8eef3;
-  --muted: #93a4b3;
-  --accent: #e0b73a;
-  --gap: 12px;
+  /* Cores HOI4 */
+  --sea:    #1e2f42;          /* mar escuro HOI4 */
+  --panel:  rgba(12, 18, 26, 0.92);  /* painéis opacos escuros */
+  --panel2: rgba(16, 24, 34, 0.88);
+  --line:   #2a3a4e;
+  --line2:  #3a4f64;
+  --text:   #d8d0b8;          /* texto bege/creme HOI4 */
+  --muted:  #7a8898;
+  --accent: #c8a428;          /* dourado HOI4 */
+  --accent2:#e8c448;
+  --red:    #aa2020;
+  --gap:    12px;
 }
 
 * { box-sizing: border-box; }
@@ -15,8 +26,10 @@ html, body {
   height: 100%;
   background: var(--sea);
   color: var(--text);
-  font: 14px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  /* HOI4 usa Barlow Condensed para UI e Crimson Pro para texto */
+  font: 13px/1.4 'Barlow Condensed', 'Trebuchet MS', system-ui, sans-serif;
   overflow: hidden;
+  letter-spacing: 0.01em;
 }
 
 #map {
@@ -30,64 +43,121 @@ html, body {
 }
 #map.dragging { cursor: grabbing; }
 
+/* ─── PAINÉIS / HUD ─── */
 .hud {
   position: fixed;
   background: var(--panel);
   border: 1px solid var(--line);
-  border-radius: 6px;
-  padding: 10px 12px;
-  backdrop-filter: blur(4px);
+  border-radius: 4px;
+  padding: 10px 13px;
+  /* borda superior dourada sutil – estilo HOI4 */
+  box-shadow: inset 0 1px 0 rgba(200,164,40,0.25), 0 4px 20px rgba(0,0,0,0.55);
 }
 
+/* ─── TÍTULO ─── */
 .title { top: var(--gap); left: var(--gap); }
 .title h1 {
   margin: 0;
-  font-size: 17px;
-  letter-spacing: 0.06em;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
+  color: var(--accent2);
+  text-shadow: 0 1px 4px rgba(0,0,0,0.7);
 }
-.title p { margin: 2px 0 0; color: var(--muted); font-size: 12px; }
+.title p {
+  margin: 3px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  letter-spacing: 0.05em;
+}
 
+/* ─── PAINEL DE INFORMAÇÃO (direita) ─── */
 .info {
   top: var(--gap);
   right: var(--gap);
-  width: 270px;
-  min-height: 92px;
+  width: 278px;
+  min-height: 96px;
 }
-.info .hint { margin: 0; color: var(--muted); }
-.info .row { display: flex; align-items: center; gap: 8px; }
-.info .chip { width: 12px; height: 12px; border-radius: 2px; flex: none; border: 1px solid rgba(0, 0, 0, 0.4); }
-.info h2 { margin: 0; font-size: 16px; }
-.info dl { margin: 8px 0 0; display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; }
+.info .hint { margin: 0; color: var(--muted); font-style: italic; font-size: 12px; }
+.info .row  { display: flex; align-items: center; gap: 9px; margin-bottom: 4px; }
+.info .chip {
+  width: 13px; height: 13px;
+  border-radius: 2px;
+  flex: none;
+  border: 1px solid rgba(0,0,0,0.5);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.15);
+}
+.info h2 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--accent2);
+  text-shadow: 0 1px 3px rgba(0,0,0,0.6);
+}
+.info dl {
+  margin: 6px 0 0;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 3px 10px;
+  font-size: 12px;
+}
 .info dt { color: var(--muted); }
-.info dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
-.info .note { margin: 8px 0 0; color: var(--muted); font-size: 12px; }
+.info dd {
+  margin: 0;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+.info .note {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+  font-style: italic;
+  border-top: 1px solid var(--line);
+  padding-top: 6px;
+}
 
+/* ─── LEGENDA ─── */
 .legend {
   left: var(--gap);
-  top: 88px;                      /* abaixo do titulo; nao cobre a Alemanha */
+  top: 88px;
   display: flex;
   flex-direction: column;
   gap: 2px;
-  min-width: 210px;
+  min-width: 215px;
 }
 .legend button {
   all: unset;
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 4px 6px;
-  border-radius: 4px;
+  padding: 4px 7px;
+  border-radius: 3px;
   cursor: pointer;
+  transition: background 0.1s;
+  font-size: 13px;
 }
-.legend button:hover { background: rgba(255, 255, 255, 0.07); }
+.legend button:hover { background: rgba(255,255,255,0.07); }
 .legend button:focus-visible { outline: 2px solid var(--accent); }
-.legend button[aria-pressed="true"] { background: rgba(224, 183, 58, 0.16); }
-.legend .chip { width: 14px; height: 14px; border-radius: 3px; border: 1px solid rgba(0, 0, 0, 0.45); }
-.legend .name { flex: 1; }
-.legend .count { color: var(--muted); font-variant-numeric: tabular-nums; }
-.legend .sep { height: 1px; background: var(--line); margin: 4px 0; }
+.legend button[aria-pressed="true"] {
+  background: rgba(200,164,40,0.18);
+  border-left: 2px solid var(--accent);
+  padding-left: 5px;
+}
+.legend .chip {
+  width: 13px; height: 13px;
+  border-radius: 2px;
+  border: 1px solid rgba(0,0,0,0.5);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.12);
+  flex: none;
+}
+.legend .name { flex: 1; color: var(--text); }
+.legend .count { color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+.legend .sep { height: 1px; background: var(--line); margin: 5px 0; }
 
+/* ─── CONTROLES DE ZOOM ─── */
 .controls {
   right: var(--gap);
   bottom: calc(var(--gap) + 22px);
@@ -96,47 +166,86 @@ html, body {
   gap: 8px;
   align-items: stretch;
 }
-.zoom { display: flex; gap: 6px; }
+.zoom { display: flex; gap: 5px; }
 .zoom button {
   flex: 1;
-  height: 34px;
-  min-width: 40px;
-  background: #1d2d3c;
+  height: 32px;
+  min-width: 38px;
+  background: #141e2a;
   color: var(--text);
   border: 1px solid var(--line);
-  border-radius: 4px;
-  font-size: 18px;
+  border-radius: 3px;
+  font-size: 17px;
   cursor: pointer;
+  transition: background 0.1s;
 }
-.zoom button:hover { background: #26394b; }
+.zoom button:hover { background: #1e2e40; }
 .zoom button:focus-visible { outline: 2px solid var(--accent); }
-.toggles { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 14px; font-size: 13px; }
+
+.toggles {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 12px;
+  font-size: 12px;
+}
 .toggles label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
 .toggles input { accent-color: var(--accent); }
 
+/* ─── PAINEL DE JOGO ─── */
 .game {
   left: var(--gap);
   bottom: calc(var(--gap) + 22px);
-  width: 270px;
+  width: 275px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 7px;
 }
 .game .gtop { display: flex; justify-content: space-between; align-items: baseline; }
-.game .gdate { font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; }
-.game .gspeed { color: var(--muted); font-size: 12px; }
-.game .gbtns { display: flex; gap: 6px; }
-.game .gbtns button {
-  flex: 1; height: 32px; background: #1d2d3c; color: var(--text);
-  border: 1px solid var(--line); border-radius: 4px; cursor: pointer; font-size: 13px;
+.game .gdate {
+  font-size: 20px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent2);
+  letter-spacing: 0.03em;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.7);
 }
-.game .gbtns button:hover { background: #26394b; }
-.game .gbtns button[aria-pressed="true"] { background: rgba(224, 183, 58, 0.25); border-color: var(--accent); }
-.game .gbtns button:focus-visible, .game select:focus-visible { outline: 2px solid var(--accent); }
-.game .gside { display: flex; align-items: center; gap: 8px; color: var(--muted); }
-.game select { flex: 1; background: #1d2d3c; color: var(--text); border: 1px solid var(--line); border-radius: 4px; padding: 4px; }
-.game .gsel { color: var(--muted); font-size: 12px; min-height: 34px; }
+.game .gspeed { color: var(--muted); font-size: 12px; }
+.game .gbtns { display: flex; gap: 5px; }
+.game .gbtns button {
+  flex: 1; height: 30px;
+  background: #141e2a; color: var(--text);
+  border: 1px solid var(--line); border-radius: 3px;
+  cursor: pointer; font-size: 12px;
+  letter-spacing: 0.05em;
+  transition: background 0.1s;
+}
+.game .gbtns button:hover { background: #1e2e40; }
+.game .gbtns button[aria-pressed="true"] {
+  background: rgba(200,164,40,0.22);
+  border-color: var(--accent);
+  color: var(--accent2);
+}
+.game .gbtns button:focus-visible,
+.game select:focus-visible { outline: 2px solid var(--accent); }
+.game .gside { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 12px; }
+.game select {
+  flex: 1;
+  background: #141e2a;
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  padding: 4px 6px;
+  font-family: inherit;
+  font-size: 12px;
+}
+.game .gsel {
+  color: var(--muted);
+  font-size: 12px;
+  min-height: 34px;
+  line-height: 1.5;
+}
 
+/* ─── CRÉDITO ─── */
 .credit {
   position: fixed;
   left: var(--gap);
@@ -146,27 +255,32 @@ html, body {
   color: var(--muted);
   pointer-events: none;
   text-align: center;
+  letter-spacing: 0.04em;
+}
+.credit kbd {
+  background: rgba(255,255,255,0.1);
+  border: 1px solid var(--line2);
+  border-radius: 3px;
+  padding: 0 4px;
+  font-size: 10px;
+  font-family: inherit;
 }
 
 .noscript { position: fixed; top: 50%; width: 100%; text-align: center; }
 
+/* ─── RESPONSIVE ─── */
 @media (max-width: 720px) {
   .info { top: 84px; left: var(--gap); right: var(--gap); width: auto; min-height: 0; }
   .title { right: var(--gap); }
   .legend {
-    left: var(--gap);
-    right: var(--gap);
-    top: auto;
-    bottom: calc(var(--gap) + 22px);
-    min-width: 0;
-    padding: 6px;
-    flex-direction: row;
-    flex-wrap: wrap;
-    gap: 2px 6px;
+    left: var(--gap); right: var(--gap);
+    top: auto; bottom: calc(var(--gap) + 22px);
+    min-width: 0; padding: 6px;
+    flex-direction: row; flex-wrap: wrap; gap: 2px 6px;
   }
   .legend .sep, .legend .count { display: none; }
-  .legend button { padding: 3px 4px; font-size: 12px; }
-  .legend .chip { width: 12px; height: 12px; }
+  .legend button { padding: 3px 4px; font-size: 11px; }
+  .legend .chip { width: 11px; height: 11px; }
   .legend .name { flex: none; }
   .controls { bottom: 156px; padding: 6px; }
   .game { top: 84px; bottom: auto; left: var(--gap); right: var(--gap); width: auto; padding: 6px 10px; gap: 4px; }
