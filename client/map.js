@@ -690,25 +690,29 @@
     }
 
     lctx.globalAlpha = 1;
+    // Salvar snapshot da terra (antes dos overlays) para usar como máscara
     mctx.setTransform(1, 0, 0, 1, 0, 0); mctx.clearRect(0, 0, layerM.width, layerM.height); mctx.drawImage(layerL, 0, 0);
+
+    // Textura procedural: aplica só dentro das áreas de terra usando layerM como clip
     lctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    lctx.globalCompositeOperation = 'overlay'; lctx.globalAlpha = 0.75;
+    // tex overlay: escurecer e dar profundidade ao mapa
+    lctx.globalCompositeOperation = 'source-atop'; lctx.globalAlpha = 0.45;
     lctx.drawImage(tex, toSX(bounds[0]), toSY(bounds[3]), (bounds[2] - bounds[0]) * view.k, (bounds[3] - bounds[1]) * view.k);
-    lctx.globalCompositeOperation = 'source-over'; lctx.globalAlpha = 0.9;
+    // glow das bordas de países
+    lctx.globalCompositeOperation = 'source-over'; lctx.globalAlpha = 0.85;
     lctx.drawImage(glow, toSX(bounds[0]), toSY(bounds[3]), (bounds[2] - bounds[0]) * view.k, (bounds[3] - bounds[1]) * view.k);
+    // detalhe de relevo
     lctx.setTransform(1, 0, 0, 1, 0, 0);
     const dp = lctx.createPattern(detail, 'repeat');
     dp.setTransform(new DOMMatrix([view.k * dpr * 2.2 / 512, 0, 0, view.k * dpr * 2.2 / 512, view.tx * dpr, view.ty * dpr]));
-    lctx.globalCompositeOperation = 'overlay'; lctx.globalAlpha = 0.5; lctx.fillStyle = dp;
+    lctx.globalCompositeOperation = 'source-atop'; lctx.globalAlpha = 0.35; lctx.fillStyle = dp;
     lctx.fillRect(0, 0, layerL.width, layerL.height);
-    lctx.globalAlpha = 0.9; lctx.globalCompositeOperation = 'source-over';
+    // grain de papel
     const pat = lctx.createPattern(grain, 'repeat');
     pat.setTransform(new DOMMatrix([1, 0, 0, 1, (view.tx * dpr) % 192, (view.ty * dpr) % 192]));
-    lctx.globalCompositeOperation = 'overlay'; lctx.globalAlpha = 0.3; lctx.fillStyle = pat;
+    lctx.globalCompositeOperation = 'source-atop'; lctx.globalAlpha = 0.18; lctx.fillStyle = pat;
     lctx.fillRect(0, 0, layerL.width, layerL.height);
-    lctx.globalCompositeOperation = 'destination-in'; lctx.globalAlpha = 1;
-    lctx.setTransform(1, 0, 0, 1, 0, 0); lctx.drawImage(layerM, 0, 0);
-    lctx.globalCompositeOperation = 'source-over';
+    lctx.globalCompositeOperation = 'source-over'; lctx.globalAlpha = 1;
 
     // brilho de costa + terra
     ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -1135,7 +1139,8 @@
           byTerrain[t].addPath(p.g.path);
         }
         for (const t of Object.keys(byTerrain)) {
-          terrainPaths[code][t] = { path: byTerrain[t], fill: shade(terrainFill(color, t), 1.0) };
+          // terrainFill já retorna rgb(...), não usar shade() que espera #hex
+          terrainPaths[code][t] = { path: byTerrain[t], fill: terrainFill(color, t) };
         }
       }
       stateOrder = states.slice().sort((a, b) => b.g.barea - a.g.barea);
