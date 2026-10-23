@@ -319,10 +319,9 @@
     return edges;
   }
 
-  // ═══════════════════ TEXTURAS HOI4-STYLE ═══════════════════
-  // HOI4 usa textura de papel sutil + marcadores de terreno simples
+  // ═══════════════════ TEXTURAS + ÍCONES QUASI-3D HOI4-STYLE ═══════════════════
 
-  // Textura base: papel antigo levemente granulado (HOI4-style)
+  // Textura base: papel antigo granulado (HOI4-style)
   function makeMapTex(w,h) {
     const c=document.createElement('canvas'); c.width=w; c.height=h;
     const g=c.getContext('2d'), im=g.createImageData(w,h), d=im.data;
@@ -340,130 +339,400 @@
     for(let j=0;j<h;j++) for(let i=0;i<w;i++) {
       const u=i/w*8,v=j/h*8*(h/w);
       const n=fbm(u,v,4,17);
-      // HOI4: textura neutra levemente aquecida (papel)
       const lum=0.88+n*0.24;
       const k=j*w+i;
-      d[k*4]=Math.min(255,200*lum)|0;    // R
-      d[k*4+1]=Math.min(255,195*lum)|0;  // G
-      d[k*4+2]=Math.min(255,185*lum)|0;  // B
+      d[k*4]=Math.min(255,200*lum)|0;
+      d[k*4+1]=Math.min(255,195*lum)|0;
+      d[k*4+2]=Math.min(255,185*lum)|0;
       d[k*4+3]=255;
     }
     g.putImageData(im,0,0); return c;
   }
 
-  // Textura de montanha HOI4: neve + sombras de relevo
-  function makeMtTex(n) {
-    const c=document.createElement('canvas'); c.width=c.height=n;
-    const g=c.getContext('2d'); g.fillStyle='#d8d4d0'; g.fillRect(0,0,n,n);
-    let seed=99; const rnd=()=>((seed=(seed*1664525+1013904223)>>>0)/4294967296);
-    for(let i=0;i<6;i++){
-      const mx=rnd()*n,my=n*0.2+rnd()*n*0.7,mh=14+rnd()*18,mw=mh*(0.6+rnd()*0.5);
-      // sombra (lado direito/baixo)
-      const sh=g.createLinearGradient(mx,my-mh,mx+mw,my);
-      sh.addColorStop(0,'rgba(120,115,110,0)'); sh.addColorStop(1,'rgba(100,95,90,0.6)');
-      g.fillStyle=sh; g.beginPath(); g.moveTo(mx,my-mh); g.lineTo(mx+mw*0.3,my); g.lineTo(mx+mw,my); g.closePath(); g.fill();
-      // face iluminada (neve)
-      const li=g.createLinearGradient(mx-mw,my,mx,my-mh);
-      li.addColorStop(0,'rgba(235,232,228,0.7)'); li.addColorStop(1,'rgba(255,255,255,0.9)');
-      g.fillStyle=li; g.beginPath(); g.moveTo(mx,my-mh); g.lineTo(mx-mw,my); g.lineTo(mx+mw*0.15,my); g.closePath(); g.fill();
+  // ──────────────────────────────────────────────────────────────
+  // ÍCONES QUASI-3D — desenhados individualmente em canvas offline
+  // e depois estampados no mapa em torno do centróide de cada
+  // província (igual ao HOI4 original).
+  // ──────────────────────────────────────────────────────────────
+
+  // Ícone de MONTANHA quasi-3D (perspectiva isométrica leve)
+  function makeMountainIcon(sz) {
+    const c=document.createElement('canvas'); c.width=sz; c.height=sz;
+    const g=c.getContext('2d');
+    const R=()=>Math.random();
+    // Múltiplos picos escalonados
+    const peaks=[
+      {x:sz*0.50,y:sz*0.72,h:sz*0.62,w:sz*0.44},
+      {x:sz*0.25,y:sz*0.78,h:sz*0.42,w:sz*0.30},
+      {x:sz*0.75,y:sz*0.80,h:sz*0.36,w:sz*0.26},
+    ];
+    for(const pk of peaks){
+      const {x,y,h,w}=pk;
+      // Sombra projetada (lado direito)
+      const shadow=g.createLinearGradient(x,y-h,x+w*0.7,y);
+      shadow.addColorStop(0,'rgba(60,50,40,0)');
+      shadow.addColorStop(1,'rgba(45,38,28,0.82)');
+      g.beginPath();
+      g.moveTo(x,y-h);
+      g.lineTo(x+w*0.15,y);
+      g.lineTo(x+w*0.78,y);
+      g.closePath();
+      g.fillStyle=shadow; g.fill();
+      // Face escura (direita)
+      const darkFace=g.createLinearGradient(x,y-h,x+w*0.5,y);
+      darkFace.addColorStop(0,'rgba(105,90,68,0.90)');
+      darkFace.addColorStop(1,'rgba(78,65,48,0.95)');
+      g.beginPath();
+      g.moveTo(x,y-h);
+      g.lineTo(x+w*0.15,y);
+      g.lineTo(x+w*0.78,y);
+      g.closePath();
+      g.fillStyle=darkFace; g.fill();
+      // Face iluminada (esquerda)
+      const litFace=g.createLinearGradient(x-w*0.5,y,x,y-h);
+      litFace.addColorStop(0,'rgba(195,188,175,0.92)');
+      litFace.addColorStop(0.55,'rgba(228,222,210,0.96)');
+      litFace.addColorStop(1,'rgba(255,252,248,1.0)');
+      g.beginPath();
+      g.moveTo(x,y-h);
+      g.lineTo(x-w*0.62,y);
+      g.lineTo(x+w*0.15,y);
+      g.closePath();
+      g.fillStyle=litFace; g.fill();
+      // Calota de neve no topo
+      const snowH=h*0.28;
+      const snow=g.createLinearGradient(x-w*0.18,y-h+snowH,x+w*0.1,y-h);
+      snow.addColorStop(0,'rgba(240,240,245,0.85)');
+      snow.addColorStop(1,'rgba(255,255,255,1.0)');
+      g.beginPath();
+      g.moveTo(x,y-h);
+      g.lineTo(x-w*0.18,y-h+snowH);
+      g.lineTo(x+w*0.10,y-h+snowH*0.7);
+      g.closePath();
+      g.fillStyle=snow; g.fill();
+      // Linha de cume
+      g.strokeStyle='rgba(255,255,255,0.45)';
+      g.lineWidth=0.8;
+      g.beginPath(); g.moveTo(x,y-h); g.lineTo(x-w*0.18,y-h+snowH); g.stroke();
     }
     return c;
   }
 
-  // Textura de floresta HOI4: tons escuros de verde
-  function makeForestTex(n) {
-    const c=document.createElement('canvas'); c.width=c.height=n;
-    const g=c.getContext('2d'); g.fillStyle='#1e3020'; g.fillRect(0,0,n,n);
-    let seed=42; const rnd=()=>((seed=(seed*1664525+1013904223)>>>0)/4294967296);
-    for(let i=0;i<20;i++){
-      const tx=rnd()*n,ty=rnd()*n,th=8+rnd()*7,tw=th*0.5;
-      g.fillStyle=rnd()<0.5?'#253a22':'#1a2e18';
-      g.beginPath(); g.moveTo(tx,ty-th); g.lineTo(tx-tw,ty); g.lineTo(tx+tw,ty); g.closePath(); g.fill();
-      // segundo triângulo (mais baixo)
-      g.fillStyle=rnd()<0.5?'#1e3020':'#162818';
-      g.beginPath(); g.moveTo(tx,ty-th*0.7); g.lineTo(tx-tw*1.1,ty+th*0.25); g.lineTo(tx+tw*1.1,ty+th*0.25); g.closePath(); g.fill();
+  // Ícone de FLORESTA quasi-3D (árvores coníferas em perspectiva)
+  function makeForestIcon(sz) {
+    const c=document.createElement('canvas'); c.width=sz; c.height=sz;
+    const g=c.getContext('2d');
+    // Sombra do terreno
+    g.fillStyle='rgba(15,28,15,0.15)';
+    g.fillRect(0,0,sz,sz);
+    // Posições das árvores (grade levemente irregular)
+    const trees=[];
+    const cols=4,rows=4;
+    for(let ry=0;ry<rows;ry++) for(let cx=0;cx<cols;cx++){
+      const jx=(Math.random()-0.5)*sz*0.12;
+      const jy=(Math.random()-0.5)*sz*0.10;
+      trees.push({
+        x:sz*(0.14+cx*0.24)+jx,
+        y:sz*(0.22+ry*0.22)+jy,
+        h:sz*(0.18+Math.random()*0.12),
+        big:Math.random()<0.45,
+      });
+    }
+    // Ordenar por Y para perspectiva
+    trees.sort((a,b)=>a.y-b.y);
+    for(const {x,y,h,big} of trees){
+      const w=h*0.72;
+      // Tronco
+      g.fillStyle='#3d2810';
+      g.fillRect(x-w*0.06,y,w*0.12,h*0.28);
+      // Camadas da árvore (HOI4: 3 triângulos sobrepostos)
+      const layers=big?3:2;
+      for(let l=0;l<layers;l++){
+        const ly=y-h*0.08-l*h*0.30;
+        const lw=w*(1.05-l*0.22);
+        const lh=h*(0.42+l*0.08);
+        // Sombra direita
+        g.beginPath();
+        g.moveTo(x,ly-lh);
+        g.lineTo(x+lw*0.55,ly);
+        g.lineTo(x+lw*0.08,ly);
+        g.closePath();
+        g.fillStyle=l===0?'rgba(18,38,16,0.92)':'rgba(22,45,19,0.90)';
+        g.fill();
+        // Face iluminada esquerda
+        g.beginPath();
+        g.moveTo(x,ly-lh);
+        g.lineTo(x-lw*0.55,ly);
+        g.lineTo(x+lw*0.08,ly);
+        g.closePath();
+        const litTree=g.createLinearGradient(x-lw*0.3,ly,x,ly-lh);
+        litTree.addColorStop(0,l===0?'rgba(38,72,32,0.95)':'rgba(44,82,36,0.92)');
+        litTree.addColorStop(1,l===0?'rgba(52,96,42,0.90)':'rgba(60,110,48,0.88)');
+        g.fillStyle=litTree;
+        g.fill();
+        // Brilho no topo
+        if(l===layers-1){
+          g.strokeStyle='rgba(80,145,62,0.40)';
+          g.lineWidth=0.7;
+          g.beginPath(); g.moveTo(x,ly-lh); g.lineTo(x-lw*0.2,ly-lh*0.5); g.stroke();
+        }
+      }
     }
     return c;
   }
 
-  // Textura de pântano HOI4
-  function makeMarshTex(n) {
-    const c=document.createElement('canvas'); c.width=c.height=n;
-    const g=c.getContext('2d'); g.fillStyle='#1e2e28'; g.fillRect(0,0,n,n);
-    g.strokeStyle='rgba(60,110,100,0.4)'; g.lineWidth=1;
-    for(let y=5;y<n;y+=9){g.beginPath();g.moveTo(0,y);g.lineTo(n,y);g.stroke();}
-    let seed=13; const rnd=()=>((seed=(seed*1664525+1013904223)>>>0)/4294967296);
-    g.fillStyle='rgba(30,80,88,0.5)';
-    for(let i=0;i<10;i++){const ox=rnd()*n,oy=rnd()*n;g.beginPath();g.ellipse(ox,oy,4+rnd()*5,2+rnd()*2.5,0,0,Math.PI*2);g.fill();}
-    return c;
-  }
-
-  // Textura de colinas HOI4
-  function makeHillsTex(n) {
-    const c=document.createElement('canvas'); c.width=c.height=n;
-    const g=c.getContext('2d'); g.fillStyle='#3a3018'; g.fillRect(0,0,n,n);
-    let seed=77; const rnd=()=>((seed=(seed*1664525+1013904223)>>>0)/4294967296);
-    for(let i=0;i<7;i++){
-      const hx=rnd()*n,hy=rnd()*n,hr=9+rnd()*9;
-      const grd=g.createRadialGradient(hx,hy-hr*0.3,0,hx,hy,hr);
-      grd.addColorStop(0,'rgba(100,85,40,0.65)'); grd.addColorStop(0.5,'rgba(70,58,25,0.45)'); grd.addColorStop(1,'rgba(40,32,10,0)');
-      g.fillStyle=grd; g.beginPath(); g.arc(hx,hy,hr,Math.PI,0); g.closePath(); g.fill();
+  // Ícone de COLINAS quasi-3D
+  function makeHillsIcon(sz) {
+    const c=document.createElement('canvas'); c.width=sz; c.height=sz;
+    const g=c.getContext('2d');
+    const hills=[
+      {x:sz*0.50,y:sz*0.72,rx:sz*0.46,ry:sz*0.30},
+      {x:sz*0.22,y:sz*0.80,rx:sz*0.32,ry:sz*0.21},
+      {x:sz*0.78,y:sz*0.82,rx:sz*0.28,ry:sz*0.18},
+    ];
+    for(const {x,y,rx,ry} of hills){
+      // Sombra
+      const sh=g.createLinearGradient(x,y-ry,x+rx*0.6,y);
+      sh.addColorStop(0,'rgba(60,52,30,0)');
+      sh.addColorStop(1,'rgba(48,40,20,0.65)');
+      g.beginPath(); g.ellipse(x,y,rx,ry,0,Math.PI,0); g.closePath();
+      g.fillStyle=sh; g.fill();
+      // Face iluminada
+      const lit=g.createLinearGradient(x-rx*0.4,y,x,y-ry);
+      lit.addColorStop(0,'rgba(112,100,62,0.90)');
+      lit.addColorStop(0.6,'rgba(138,125,78,0.88)');
+      lit.addColorStop(1,'rgba(165,150,95,0.82)');
+      g.beginPath(); g.ellipse(x,y,rx,ry,0,Math.PI,0); g.closePath();
+      g.fillStyle=lit; g.fill();
+      // Linha de crista
+      g.strokeStyle='rgba(200,185,130,0.40)';
+      g.lineWidth=0.9;
+      g.beginPath(); g.ellipse(x,y,rx*0.55,ry*0.55,0,Math.PI,Math.PI*0.15); g.stroke();
     }
     return c;
   }
 
-  // Textura urbana HOI4: grade de ruas
-  function makeUrbanTex(n) {
-    const c=document.createElement('canvas'); c.width=c.height=n;
-    const g=c.getContext('2d'); g.fillStyle='#28201a'; g.fillRect(0,0,n,n);
-    g.strokeStyle='rgba(70,60,45,0.55)'; g.lineWidth=1;
-    const step=13;
-    for(let x=0;x<n;x+=step){g.beginPath();g.moveTo(x,0);g.lineTo(x,n);g.stroke();}
-    for(let y=0;y<n;y+=step){g.beginPath();g.moveTo(0,y);g.lineTo(n,y);g.stroke();}
-    let seed=55; const rnd=()=>((seed=(seed*1664525+1013904223)>>>0)/4294967296);
-    g.fillStyle='rgba(50,42,30,0.7)';
-    for(let bx=2;bx<n;bx+=step)for(let by=2;by<n;by+=step){
-      const bw=step-3-rnd()*3,bh=step-3-rnd()*3;
-      g.fillRect(bx,by,bw,bh);
+  // Ícone de PÂNTANO quasi-3D (juncos + espelho d'água)
+  function makeMarshIcon(sz) {
+    const c=document.createElement('canvas'); c.width=sz; c.height=sz;
+    const g=c.getContext('2d');
+    // Espelho d'água (fundo)
+    const waterGrad=g.createLinearGradient(0,sz*0.55,0,sz);
+    waterGrad.addColorStop(0,'rgba(52,98,110,0.75)');
+    waterGrad.addColorStop(1,'rgba(28,58,70,0.90)');
+    g.fillStyle=waterGrad;
+    g.beginPath();
+    g.ellipse(sz*0.50,sz*0.80,sz*0.38,sz*0.13,0,0,Math.PI*2);
+    g.fill();
+    g.ellipse(sz*0.28,sz*0.88,sz*0.20,sz*0.08,0,0,Math.PI*2);
+    g.fill();
+    // Reflexo na água
+    g.strokeStyle='rgba(120,188,210,0.28)';
+    g.lineWidth=0.9;
+    for(let i=0;i<3;i++){
+      g.beginPath(); g.moveTo(sz*(0.30+i*0.12),sz*0.80); g.lineTo(sz*(0.38+i*0.10),sz*0.80); g.stroke();
+    }
+    // Juncos
+    const reeds=[
+      {x:sz*0.20,y:sz*0.85},{x:sz*0.32,y:sz*0.80},{x:sz*0.48,y:sz*0.82},
+      {x:sz*0.62,y:sz*0.78},{x:sz*0.75,y:sz*0.84},{x:sz*0.55,y*sz*0.90,y:sz*0.88},
+    ];
+    for(const {x,y} of reeds){
+      const h=sz*(0.22+Math.random()*0.18);
+      // Caule
+      g.strokeStyle='rgba(75,110,55,0.95)';
+      g.lineWidth=1.2;
+      g.beginPath(); g.moveTo(x,y); g.lineTo(x+(Math.random()-0.5)*sz*0.04,y-h*0.85); g.stroke();
+      // Espiga marrom no topo
+      g.fillStyle='rgba(105,65,22,0.92)';
+      g.beginPath(); g.ellipse(x,y-h,sz*0.025,sz*0.068,0.15,0,Math.PI*2); g.fill();
+      // Brilho
+      g.strokeStyle='rgba(140,175,85,0.35)';
+      g.lineWidth=0.6;
+      g.beginPath(); g.moveTo(x-1,y-h*0.1); g.lineTo(x-1,y-h*0.5); g.stroke();
     }
     return c;
   }
 
-  // Textura de planície HOI4 (muito sutil)
-  function makePlainsTex(n) {
-    const c=document.createElement('canvas'); c.width=c.height=n;
-    const g=c.getContext('2d'); g.fillStyle='#323825'; g.fillRect(0,0,n,n);
-    let seed=33; const rnd=()=>((seed=(seed*1664525+1013904223)>>>0)/4294967296);
-    g.fillStyle='rgba(55,65,35,0.28)';
-    for(let i=0;i<20;i++){const px=rnd()*n,py=rnd()*n,pr=2+rnd()*6;g.beginPath();g.arc(px,py,pr,0,Math.PI*2);g.fill();}
+  // Ícone de CIDADE quasi-3D (prédios em perspectiva isométrica)
+  function makeUrbanIcon(sz) {
+    const c=document.createElement('canvas'); c.width=sz; c.height=sz;
+    const g=c.getContext('2d');
+    // Sombra no chão
+    g.fillStyle='rgba(20,16,12,0.25)';
+    g.beginPath(); g.ellipse(sz*0.50,sz*0.88,sz*0.44,sz*0.08,0,0,Math.PI*2); g.fill();
+    // Prédios de fundo
+    const buildings=[
+      {x:sz*0.10,y:sz*0.60,w:sz*0.14,h:sz*0.35,d:sz*0.07},
+      {x:sz*0.26,y:sz*0.48,w:sz*0.16,h:sz*0.47,d:sz*0.07},
+      {x:sz*0.56,y:sz*0.44,w:sz*0.18,h:sz*0.51,d:sz*0.08},
+      {x:sz*0.74,y:sz*0.55,w:sz*0.14,h:sz*0.38,d:sz*0.06},
+      {x:sz*0.42,y:sz*0.55,w:sz*0.12,h:sz*0.38,d:sz*0.05},
+    ];
+    buildings.sort((a,b)=>a.y-b.y);
+    for(const {x,y,w,h,d} of buildings){
+      // Topo (face frontal)
+      const front=g.createLinearGradient(x,y,x,y+h);
+      front.addColorStop(0,'rgba(148,132,108,0.98)');
+      front.addColorStop(0.4,'rgba(118,105,86,0.98)');
+      front.addColorStop(1,'rgba(92,82,65,0.98)');
+      g.fillStyle=front;
+      g.fillRect(x,y,w,h);
+      // Face lateral (direita – mais escura)
+      const side=g.createLinearGradient(x+w,y,x+w+d,y+d);
+      side.addColorStop(0,'rgba(72,62,46,0.98)');
+      side.addColorStop(1,'rgba(55,48,36,0.98)');
+      g.fillStyle=side;
+      g.beginPath();
+      g.moveTo(x+w,y);
+      g.lineTo(x+w+d,y-d);
+      g.lineTo(x+w+d,y+h-d);
+      g.lineTo(x+w,y+h);
+      g.closePath();
+      g.fill();
+      // Face do topo
+      const top=g.createLinearGradient(x,y,x+d,y-d);
+      top.addColorStop(0,'rgba(195,178,148,0.98)');
+      top.addColorStop(1,'rgba(220,205,175,0.98)');
+      g.fillStyle=top;
+      g.beginPath();
+      g.moveTo(x,y);
+      g.lineTo(x+w,y);
+      g.lineTo(x+w+d,y-d);
+      g.lineTo(x+d,y-d);
+      g.closePath();
+      g.fill();
+      // Janelas
+      g.fillStyle='rgba(180,210,240,0.55)';
+      const wrows=Math.floor(h/sz*6),wcols=Math.floor(w/sz*5);
+      const wx=w/(wcols+1),wy=h/(wrows+1);
+      for(let wr=1;wr<=wrows;wr++) for(let wc=1;wc<=wcols;wc++){
+        g.fillRect(x+wc*wx-wx*0.25,y+wr*wy-wy*0.35,wx*0.5,wy*0.6);
+      }
+      // Borda do prédio
+      g.strokeStyle='rgba(40,32,22,0.60)';
+      g.lineWidth=0.6;
+      g.strokeRect(x,y,w,h);
+    }
     return c;
   }
 
-  // Textura de estepe HOI4
-  function makeDesertTex(n) {
-    const c=document.createElement('canvas'); c.width=c.height=n;
-    const g=c.getContext('2d'); g.fillStyle='#524420'; g.fillRect(0,0,n,n);
-    g.strokeStyle='rgba(90,78,38,0.38)'; g.lineWidth=1;
-    let seed=88; const rnd=()=>((seed=(seed*1664525+1013904223)>>>0)/4294967296);
+  // Ícone de ESTEPE/DESERTO quasi-3D (dunas)
+  function makeDesertIcon(sz) {
+    const c=document.createElement('canvas'); c.width=sz; c.height=sz;
+    const g=c.getContext('2d');
+    const dunes=[
+      {x:sz*0.50,y:sz*0.75,rx:sz*0.48,ry:sz*0.25},
+      {x:sz*0.20,y:sz*0.85,rx:sz*0.28,ry:sz*0.15},
+      {x:sz*0.80,y:sz*0.83,rx:sz*0.24,ry:sz*0.14},
+    ];
+    for(const {x,y,rx,ry} of dunes){
+      // Sombra
+      const sh=g.createLinearGradient(x,y-ry,x+rx,y);
+      sh.addColorStop(0,'rgba(100,75,20,0)');
+      sh.addColorStop(1,'rgba(80,58,12,0.70)');
+      g.beginPath(); g.ellipse(x,y,rx,ry,0,Math.PI,0); g.closePath();
+      g.fillStyle=sh; g.fill();
+      // Lit face
+      const lit=g.createLinearGradient(x-rx,y,x,y-ry);
+      lit.addColorStop(0,'rgba(158,130,58,0.90)');
+      lit.addColorStop(0.7,'rgba(188,158,72,0.88)');
+      lit.addColorStop(1,'rgba(215,185,92,0.82)');
+      g.beginPath(); g.ellipse(x,y,rx,ry,0,Math.PI,0); g.closePath();
+      g.fillStyle=lit; g.fill();
+      // Crista
+      g.strokeStyle='rgba(235,210,130,0.50)';
+      g.lineWidth=0.8;
+      g.beginPath(); g.ellipse(x-rx*0.05,y-ry*0.05,rx*0.75,ry*0.25,0,Math.PI*1.1,Math.PI*1.9); g.stroke();
+    }
+    return c;
+  }
+
+  // Ícone de PLANÍCIE (ondulações suaves de grama)
+  function makePlainsIcon(sz) {
+    const c=document.createElement('canvas'); c.width=sz; c.height=sz;
+    const g=c.getContext('2d');
+    // Linhas de campo suaves
+    g.strokeStyle='rgba(75,92,42,0.40)';
+    g.lineWidth=1.0;
     for(let i=0;i<5;i++){
-      const sy=rnd()*n;
-      g.beginPath(); g.moveTo(0,sy);
-      for(let x=0;x<n;x+=8) g.lineTo(x,sy+(rnd()-0.5)*5);
+      const y=sz*(0.40+i*0.12);
+      g.beginPath(); g.moveTo(0,y);
+      for(let xi=0;xi<sz;xi+=sz*0.2){
+        g.quadraticCurveTo(xi+sz*0.05,y+(Math.random()-0.5)*sz*0.05,xi+sz*0.1,y);
+        g.quadraticCurveTo(xi+sz*0.15,y+(Math.random()-0.5)*sz*0.05,xi+sz*0.2,y);
+      }
       g.stroke();
     }
     return c;
   }
 
-  const terrainTex = {};
+  // Sprites de terreno pré-renderizados (ícones individuais para estampar)
+  const terrainSprites = {};
+  // Sprites maiores para estampagem
   function initTerrainTextures() {
-    const N=96;
-    terrainTex.plains    = makePlainsTex(N);
-    terrainTex.forest    = makeForestTex(N);
-    terrainTex.marsh     = makeMarshTex(N);
-    terrainTex.hills     = makeHillsTex(N);
-    terrainTex.mountains = makeMtTex(N);
-    terrainTex.urban     = makeUrbanTex(N);
-    terrainTex.desert    = makeDesertTex(N);
+    terrainSprites.mountains = makeMountainIcon(80);
+    terrainSprites.forest    = makeForestIcon(64);
+    terrainSprites.hills     = makeHillsIcon(72);
+    terrainSprites.marsh     = makeMarshIcon(68);
+    terrainSprites.urban     = makeUrbanIcon(72);
+    terrainSprites.desert    = makeDesertIcon(72);
+    terrainSprites.plains    = makePlainsIcon(64);
+  }
+
+  // ─── RIOS NAS BORDAS DAS PROVÍNCIAS ───
+  // Mapa de arestas compartilhadas que têm rio, para desenhar como bordas coloridas
+  let riverBorderEdges = []; // Array de {ax,ay,bx,by} no espaço de mapa
+
+  function buildRiverBorderPaths(wt, provList) {
+    // Já temos riverEdges (Set de strings "i-j") — agora precisamos
+    // encontrar os segmentos geométricos compartilhados entre as duas províncias.
+    riverBorderEdges = [];
+    if (!riverEdges.size) return;
+    // Para cada par com river edge, encontrar a aresta geométrica compartilhada
+    for (const key of riverEdges) {
+      const [ai,bi] = key.split('-').map(Number);
+      const pa = provList[ai], pb = provList[bi];
+      if (!pa || !pb) continue;
+      // Encontrar segmentos compartilhados nas geometrias
+      const sharedSegs = findSharedEdge(pa.g.rings, pb.g.rings);
+      for (const seg of sharedSegs) riverBorderEdges.push(seg);
+    }
+  }
+
+  // Encontra segmentos de reta compartilhados entre dois polígonos
+  function findSharedEdge(ringsA, ringsB) {
+    const SNAP = 0.003; // tolerância geométrica
+    const segs = [];
+    // Coleta todos os segmentos de B num Set para lookup rápido
+    const bSegs = new Map();
+    for (const r of ringsB) {
+      const n = r.length;
+      for (let i = 0; i < n; i += 2) {
+        const x1=r[i],y1=r[i+1],x2=r[(i+2)%n],y2=r[(i+3)%n];
+        const k = segKey(x1,y1,x2,y2);
+        bSegs.set(k, {x1,y1,x2,y2});
+      }
+    }
+    for (const r of ringsA) {
+      const n = r.length;
+      for (let i = 0; i < n; i += 2) {
+        const x1=r[i],y1=r[i+1],x2=r[(i+2)%n],y2=r[(i+3)%n];
+        const k = segKey(x2,y2,x1,y1); // inverso (polígonos compartilham opostos)
+        if (bSegs.has(k)) {
+          segs.push({x1,y1,x2,y2});
+          break; // um segmento por anel é suficiente para aprox.
+        }
+      }
+    }
+    // fallback: se não achou geometria exata, usa linha entre centróides
+    return segs;
+  }
+
+  function segKey(x1,y1,x2,y2) {
+    // round para 3 casas decimais para tolerância de snap
+    const r=(v)=>Math.round(v*500)/500;
+    return `${r(x1)},${r(y1)}|${r(x2)},${r(y2)}`;
   }
 
   // ─── UTILIDADES DE COR ───
@@ -583,29 +852,47 @@
     lctx.drawImage(mapTex,toSX(bounds[0]),toSY(bounds[3]),
       (bounds[2]-bounds[0])*view.k,(bounds[3]-bounds[1])*view.k);
 
-    // ── 5. Ícones de terreno (zoom próximo) – multiplicar sobre as cores ──
-    if(opts.terrain && zoomRel>2.0) {
-      const alpha=Math.min(1,(zoomRel-2.0)/1.5)*0.40;
-      lctx.globalAlpha=alpha;
-      lctx.globalCompositeOperation='multiply';
+    // ── 5. Ícones quasi-3D de terreno HOI4-style ──
+    // Aparecem a partir de zoom 1.4× e ficam mais intensos com o zoom
+    if(opts.terrain && zoomRel>1.4) {
+      const fadeIn = Math.min(1,(zoomRel-1.4)/1.2);
+      lctx.setTransform(dpr,0,0,dpr,0,0);
+      lctx.globalCompositeOperation='source-over';
+
       for(const p of provinces){
-        if(p.terrain==='plains') continue;
-        const sx=toSX(p.l[0]),sy=toSY(p.l[1]);
-        const tSize=Math.max(32,Math.min(96,view.k*0.55));
-        if(sx<-tSize||sy<-tSize||sx>W+tSize||sy>H+tSize) continue;
         if(dim(p.owner)<1) continue;
-        const tex2=terrainTex[p.terrain]; if(!tex2) continue;
-        // criar pattern alinhado à posição do canvas
-        const pat=lctx.createPattern(tex2,'repeat');
-        pat.setTransform(new DOMMatrix([1,0,0,1,(sx*dpr)%96,(sy*dpr)%96]));
-        lctx.save();
-        // clip na forma da província
-        lctx.setTransform(dpr*view.k,0,0,-dpr*view.k,dpr*view.tx,dpr*view.ty);
-        lctx.clip(p.g.path,'nonzero');
-        lctx.setTransform(dpr,0,0,dpr,0,0);
-        lctx.fillStyle=pat; lctx.fillRect(sx-tSize,sy-tSize,tSize*2,tSize*2);
-        lctx.restore();
+        const sprite = terrainSprites[p.terrain]; if(!sprite) continue;
+        const sx=toSX(p.l[0]), sy=toSY(p.l[1]);
+        if(sx<-80||sy<-80||sx>W+80||sy>H+80) continue;
+
+        // Escala do sprite depende do zoom e tamanho da província
+        const provScreenSize = Math.sqrt(p.g.barea)*view.k;
+        // Quantos ícones cabem na província?
+        const iconCount = p.terrain==='forest'||p.terrain==='plains' ? Math.max(1,Math.min(4,Math.floor(provScreenSize/40))) : 1;
+        const baseScale = Math.max(0.30, Math.min(1.05, provScreenSize / (sprite.width * 1.8)));
+        const alpha = fadeIn * (p.terrain==='plains'?0.22:0.78);
+        lctx.globalAlpha = alpha;
+
+        if(iconCount===1){
+          // Sprite único centrado na província
+          const sw=sprite.width*baseScale*dpr, sh=sprite.height*baseScale*dpr;
+          lctx.drawImage(sprite, sx*dpr-sw/2, sy*dpr-sh/2, sw, sh);
+        } else {
+          // Grade de ícones menores dentro da província (para florestas grandes)
+          const smallScale = baseScale * 0.65;
+          const sw=sprite.width*smallScale*dpr, sh=sprite.height*smallScale*dpr;
+          const offsets = [
+            [-provScreenSize*0.22*dpr,-provScreenSize*0.18*dpr],
+            [ provScreenSize*0.20*dpr,-provScreenSize*0.15*dpr],
+            [-provScreenSize*0.18*dpr, provScreenSize*0.20*dpr],
+            [ provScreenSize*0.22*dpr, provScreenSize*0.18*dpr],
+          ].slice(0,iconCount);
+          for(const [dx,dy] of offsets){
+            lctx.drawImage(sprite, sx*dpr+dx-sw/2, sy*dpr+dy-sh/2, sw, sh);
+          }
+        }
       }
+      lctx.globalAlpha=1;
     }
 
     lctx.globalCompositeOperation='source-over'; lctx.globalAlpha=1;
@@ -678,13 +965,35 @@
       }
     }
 
-    // Rios – HOI4: azul muito escuro, fino
-    if(riverPaths){
+    // Rios – desenhados NAS BORDAS das províncias (não como paths flutuantes)
+    if(riverBorderEdges.length>0){
+      const riverWidth = Math.max(1.2, Math.min(4.0, zoomRel*0.9)) * px;
+      // Halo azul claro
+      ctx.strokeStyle='rgba(130,185,235,0.55)';
+      ctx.lineWidth=riverWidth*2.8;
+      ctx.lineCap='round';
+      for(const {x1,y1,x2,y2} of riverBorderEdges){
+        ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
+      }
+      // Linha central escura
+      ctx.strokeStyle='rgba(24,62,105,0.88)';
+      ctx.lineWidth=riverWidth;
+      for(const {x1,y1,x2,y2} of riverBorderEdges){
+        ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
+      }
+      // Brilho (linha branca fina no centro)
+      ctx.strokeStyle='rgba(190,230,255,0.30)';
+      ctx.lineWidth=riverWidth*0.35;
+      for(const {x1,y1,x2,y2} of riverBorderEdges){
+        ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
+      }
+    } else if(riverPaths){
+      // Fallback: rios como paths GeoJSON se bordas não foram detectadas
       const zf=Math.min(2.0,0.7+0.15*Math.sqrt(zoomRel));
       for(const [w,wpx] of [['1',0.8],['2',1.5],['3',2.4]]){
         if(!riverPaths[w]) continue;
-        ctx.strokeStyle='rgba(120,168,220,0.22)'; ctx.lineWidth=(wpx+1.2)*zf*px; ctx.stroke(riverPaths[w]);
-        ctx.strokeStyle='#122844'; ctx.lineWidth=wpx*zf*px; ctx.stroke(riverPaths[w]);
+        ctx.strokeStyle='rgba(130,185,235,0.45)'; ctx.lineWidth=(wpx+1.4)*zf*px; ctx.stroke(riverPaths[w]);
+        ctx.strokeStyle='rgba(24,62,105,0.88)'; ctx.lineWidth=wpx*zf*px; ctx.stroke(riverPaths[w]);
       }
     }
 
@@ -979,8 +1288,11 @@
       // Terreno
       for(const p of provinces) p.terrain=assignTerrain(p);
 
-      // Bordas de rio
+      // Bordas de rio (para detecção de custo de movimento)
       riverEdges=buildRiverEdges(wt,provinces);
+
+      // Rios nas bordas geométricas das províncias
+      buildRiverBorderPaths(wt,provinces);
 
       cityProvs=provinces.filter(p=>p.c);
 
