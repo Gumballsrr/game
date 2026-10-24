@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Hearts of Iron IV - 3D Engine</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Viewport 3D Three.js do Mapa HOI4 -->
+  <div id="map-3d-wrapper"></div>
+
+  <!-- Barra Superior Autêntica Oficial do HOI4 -->
+  <header class="hoi4-topbar">
+    <div class="topbar-left">
+      <!-- Bandeira do Jogador -->
+      <div class="player-flag-box" id="player-flag-box" title="Detalhes da Nação">
+        <img src="gfx/flags/GER_fascism.png" alt="Alemanha" id="player-flag-img">
+        <div class="flag-gold-frame"></div>
+      </div>
+
+      <!-- Botões de Ação do Governo (Toolbar Oficial) -->
+      <div class="topbar-toolbar">
+        <button class="tb-btn" title="Decisões e Projetos Nacionais (Shift+Q)">
+          <img src="gfx/interface/topbar_decisionview_button.png" alt="Decisões">
+        </button>
+        <button class="tb-btn" title="Pesquisa & Tecnologia (W)">
+          <img src="gfx/interface/science_button.png" alt="Pesquisa">
+        </button>
+        <button class="tb-btn" title="Diplomacia (E)">
+          <img src="gfx/interface/diplomacy_button.png" alt="Diplomacia">
+        </button>
+        <button class="tb-btn" title="Comércio Internacional (R)">
+          <img src="gfx/interface/trade_button.png" alt="Comércio">
+        </button>
+        <button class="tb-btn" title="Construções & Infraestrutura (T)">
+          <img src="gfx/interface/construction_button.png" alt="Construção">
+        </button>
+        <button class="tb-btn" title="Produção Militar e Naval (Y)">
+          <img src="gfx/interface/production_button.png" alt="Produção">
+        </button>
+        <button class="tb-btn" title="Recrutamento e Disposição (U)">
+          <img src="gfx/interface/deployment_button.png" alt="Recrutamento">
+        </button>
+        <button class="tb-btn" title="Agência de Inteligência (I)">
+          <img src="gfx/interface/intelligence_button.png" alt="Inteligência">
+        </button>
+      </div>
+
+      <!-- Estatísticas Oficiais do HOI4 -->
+      <div class="topbar-stats">
+        <div class="stat-pill" title="Poder Político (+2.00/dia)">
+          <span class="stat-ico">⚖️</span>
+          <span class="stat-text" id="val-pp">150</span>
+          <span class="stat-sub">+2.00</span>
+        </div>
+        <div class="stat-pill" title="Estabilidade Nacional">
+          <span class="stat-ico">🕊️</span>
+          <span class="stat-text" id="val-stab">75%</span>
+        </div>
+        <div class="stat-pill" title="Apoio de Guerra">
+          <span class="stat-ico">⚔️</span>
+          <span class="stat-text" id="val-war">80%</span>
+        </div>
+        <div class="stat-pill" title="População Recrutável (Manpower)">
+          <span class="stat-ico">👥</span>
+          <span class="stat-text" id="val-manpower">1.25M</span>
+        </div>
+        <div class="stat-pill" title="Fábricas Civis, Militares e Estaleiros">
+          <span class="stat-ico">🏭</span>
+          <span class="stat-text" id="val-factories">124</span>
+        </div>
+        <div class="stat-pill" title="Combustível">
+          <img src="gfx/interface/fuel_icon.png" class="stat-img" alt="Combustível">
+          <span class="stat-text" id="val-fuel">1.5M</span>
+        </div>
+        <div class="stat-pill" title="Comboios de Transporte">
+          <span class="stat-ico">🚢</span>
+          <span class="stat-text" id="val-convoys">450</span>
+        </div>
+        <div class="stat-pill" title="Poder de Comando">
+          <span class="stat-ico">🎖️</span>
+          <span class="stat-text" id="val-cp">100/100</span>
+        </div>
+        <div class="stat-pill" title="Experiência: Exército / Armada / Aeronáutica">
+          <span class="stat-ico">⭐</span>
+          <span class="stat-text" id="val-xp">25 / 10 / 15</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="topbar-right">
+      <!-- Tensão Mundial Oficial -->
+      <div class="world-tension-container" title="Tensão Mundial Geral">
+        <img src="gfx/interface/world_tension_icon.png" alt="Tensão" class="tension-icon">
+        <span class="tension-number" id="tension-val">0%</span>
+      </div>
+
+      <!-- Relógio e Velocidade Oficial (topbar_date_overlay.png) -->
+      <div class="topbar-clock-overlay">
+        <div class="clock-date-line" id="date-display">12:00, 1 Jan, 1936</div>
+        <div class="clock-controls-row">
+          <button id="btn-pause" class="clock-pause-btn" title="Pausar / Continuar (Espaço)">⏸</button>
+          <div class="speed-step-indicator" id="speed-indicator">
+            <span class="pip active" data-speed="1"></span>
+            <span class="pip" data-speed="2"></span>
+            <span class="pip" data-speed="3"></span>
+            <span class="pip" data-speed="4"></span>
+            <span class="pip" data-speed="5"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Janela Oficial de Detalhes do Estado (stateview_bg.png) -->
+  <aside class="hoi4-stateview" id="state-window">
+    <div class="stateview-inner">
+      <div class="sv-header">
+        <div class="sv-title-area">
+          <h2 id="st-name">Brandenburg</h2>
+          <span class="sv-category" id="st-category">Megalopolis</span>
+        </div>
+        <button class="sv-close-btn" id="btn-close-state">✕</button>
+      </div>
+
+      <div class="sv-owner-section">
+        <div class="sv-flag-frame">
+          <img src="gfx/flags/GER_fascism.png" id="st-flag-img" alt="Bandeira">
+        </div>
+        <div class="sv-owner-text">
+          <span class="sv-owner-label">Controlado & Reivindicado por:</span>
+          <h3 id="st-owner-name">German Reich</h3>
+          <span class="sv-demilitarized" id="st-demil-status">Zona Militar Regular</span>
+        </div>
+      </div>
+
+      <div class="sv-stats-row">
+        <div class="sv-stat-card">
+          <span class="sv-stat-label">População</span>
+          <strong id="st-manpower">7.26M</strong>
+        </div>
+        <div class="sv-stat-card">
+          <span class="sv-stat-label">Pontos de Vitória</span>
+          <strong id="st-vps">⭐ 56 VP</strong>
+        </div>
+        <div class="sv-stat-card">
+          <span class="sv-stat-label">Infraestrutura</span>
+          <strong id="st-infra">Nível 5/5</strong>
+        </div>
+        <div class="sv-stat-card">
+          <span class="sv-stat-label">Províncias</span>
+          <strong id="st-prov-count">16</strong>
+        </div>
+      </div>
+
+      <div class="sv-buildings-block">
+        <div class="sv-block-title">ESTRUTURAS & CAPACIDADE INDUSTRIAL</div>
+        <div class="sv-slots-grid">
+          <div class="sv-slot" title="Fábricas Civis">🏭 <span id="st-civ-factories">4 Civis</span></div>
+          <div class="sv-slot" title="Fábricas Militares">⚔️ <span id="st-mil-factories">5 Militares</span></div>
+          <div class="sv-slot" title="Base Aérea">✈️ <span id="st-air-base">Base Aérea (6)</span></div>
+          <div class="sv-slot" title="Artilharia Antiaérea">🛡️ <span id="st-aa">Defesa AA (2)</span></div>
+        </div>
+      </div>
+
+      <div class="sv-vp-cities-block">
+        <div class="sv-block-title">CIDADES PRINCIPAIS & PONTOS DE VITÓRIA</div>
+        <ul id="vp-list" class="sv-vp-list"></ul>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Tooltip Autêntico do HOI4 -->
+  <div class="hoi4-tooltip" id="hover-tooltip">
+    <div class="tt-header">
+      <img src="gfx/flags/GER_fascism.png" id="tt-flag-img" class="tt-flag" alt="">
+      <span class="tt-title" id="tt-state">Brandenburg</span>
+    </div>
+    <div class="tt-body" id="tt-sub">German Reich • Província #6521 • ⭐ 50 VP (Berlin)</div>
+  </div>
+
+  <!-- Dock Inferior de Modos de Mapa e Controles de Câmera 3D -->
+  <footer class="hoi4-bottom-dock">
+    <div class="dock-mapmodes">
+      <button class="dock-btn active" id="mode-political" title="Modo de Mapa Político Oficial (F1)">
+        <span class="dock-btn-icon">🗺️</span> POLÍTICO
+      </button>
+      <button class="dock-btn" id="mode-terrain" title="Modo de Relevo e Terreno de Satélite Oficial (F2)">
+        <span class="dock-btn-icon">🏔️</span> TERRENO 3D
+      </button>
+      <button class="dock-btn" id="btn-toggle-3d" title="Alternar Inclinação de Perspectiva 3D (T)">
+        <span class="dock-btn-icon">📐</span> CÂMERA 3D: <span id="lbl-3d-status">ON</span>
+      </button>
+    </div>
+
+    <div class="dock-camera-controls">
+      <button id="btn-zoom-in" class="camera-btn" title="Aproximar Zoom (+)">+</button>
+      <button id="btn-zoom-out" class="camera-btn" title="Afastar Zoom (−)">−</button>
+      <button id="btn-zoom-reset" class="camera-btn" title="Centralizar na Europa (Espaço)">⌖</button>
+    </div>
+
+    <div class="dock-info-watermark">
+      Hearts of Iron IV • Three.js 3D WebGL • 5.632 × 2.048 • 13.414 Províncias • Botão Direito: Girar 3D
+    </div>
+  </footer>
+
+  <!-- Three.js 3D Engine Library -->
+  <script src="js/three.min.js"></script>
+  <script src="map.js"></script>
+</body>
+</html>
