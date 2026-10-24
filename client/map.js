@@ -1,15 +1,23 @@
 /**
- * Hearts of Iron IV - True 3D WebGL Engine
- * Built with Three.js - Real 3D Terrain Mesh with Heightmap Vertex Displacement,
- * Normal Mapping, Clausewitz Camera Controls, and Real-Time Raycasting.
+ * Hearts of Iron IV - Central & Eastern European Theater 3D Engine
+ * Features:
+ * - Direct 1:1 Province Lookup (1080x720) covering GER, SOV, HUN, ROM, FIN, POL
+ * - Dynamic 60 FPS Province Selection & Hover Mesh (Glowing contours & gold highlights)
+ * - Authentic Paradox Terrain Illustration Cards
+ * - Clausewitz Camera with Smooth WASD & 3D Orbit Controls
  */
 (() => {
   'use strict';
 
-  // Container
   const container = document.getElementById('map-3d-wrapper');
 
-  // Three.js Scene, Camera, Renderer
+  // Dimensions of Theater
+  const MAP_W = 1080;
+  const MAP_H = 720;
+  const PLANE_W = 360.0;
+  const PLANE_H = 240.0;
+
+  // Three.js Core
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x060c13);
 
@@ -17,47 +25,47 @@
     45,
     window.innerWidth / window.innerHeight,
     1,
-    25000
+    12000
   );
 
   const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.05;
+  renderer.toneMappingExposure = 1.08;
   renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   container.appendChild(renderer.domElement);
 
-  // Lighting (Authentic HOI4 Northwest Directional Sun + Ambient Sky)
-  const ambientLight = new THREE.AmbientLight(0xdde8f5, 0.65);
+  // Lighting (Clausewitz NW Directional Sun + Cold Ambient)
+  const ambientLight = new THREE.AmbientLight(0xdbe6f2, 0.72);
   scene.add(ambientLight);
 
-  const sunLight = new THREE.DirectionalLight(0xfff6e5, 1.15);
-  sunLight.position.set(-300, 500, 350);
+  const sunLight = new THREE.DirectionalLight(0xfff5e4, 1.25);
+  sunLight.position.set(-250, 450, 280);
   sunLight.castShadow = true;
   scene.add(sunLight);
 
-  const fillLight = new THREE.DirectionalLight(0x7090b0, 0.35);
-  fillLight.position.set(200, 300, -200);
-  scene.add(fillLight);
+  const skyFill = new THREE.DirectionalLight(0x6080a0, 0.35);
+  skyFill.position.set(180, 220, -150);
+  scene.add(skyFill);
 
-  // Map Dimensions (Official HOI4 Proportions: 5632 x 2048)
-  const PLANE_W = 563.2;
-  const PLANE_H = 204.8;
-  const MAP_W = 5632;
-  const MAP_H = 2048;
-  const LOOKUP_W = 2816;
-  const LOOKUP_H = 1024;
-
+  // Mesh & Material variables
   let terrainMesh = null;
-  let waterMesh = null;
-  let material = null;
+  let terrainMaterial = null;
   let texPolitical = null;
   let texSatellite = null;
   let currentMapmode = 'political';
 
-  // UI Elements
+  // Province Highlight Layer (Dynamic 2D Canvas mapped onto 3D plane)
+  const hlCanvas = document.createElement('canvas');
+  hlCanvas.width = MAP_W;
+  hlCanvas.height = MAP_H;
+  const hlCtx = hlCanvas.getContext('2d', { willReadFrequently: true });
+  let hlTexture = new THREE.CanvasTexture(hlCanvas);
+  hlTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  let hlMesh = null;
+
+  // UI DOM Elements
   const tooltip = document.getElementById('hover-tooltip');
   const ttFlagImg = document.getElementById('tt-flag-img');
   const ttState = document.getElementById('tt-state');
@@ -74,6 +82,7 @@
   const stProvCount = document.getElementById('st-prov-count');
   const vpList = document.getElementById('vp-list');
   const btnCloseState = document.getElementById('btn-close-state');
+  const stTerrainBanner = document.getElementById('st-terrain-banner');
 
   const dateDisplay = document.getElementById('date-display');
   const btnPause = document.getElementById('btn-pause');
@@ -87,94 +96,130 @@
   const btnZoomOut = document.getElementById('btn-zoom-out');
   const btnZoomReset = document.getElementById('btn-zoom-reset');
 
-  // Data
+  // Datasets
+  let provLookup = null;       // Uint16Array (1080 * 720)
+  let provMeta = {};           // Province dictionary
+  let provBounds = {};         // Province bounding boxes
   let statesData = {};
-  let countriesData = {};
-  let provLookup = null;
+
+  let hoveredPid = 0;
+  let selectedPid = 6521;      // Default selected: Berlin (#6521)
 
   // Flag resolver
   function getFlagUrl(tag) {
     const known = {
       GER: 'gfx/flags/GER_fascism.png',
       SOV: 'gfx/flags/SOV_communism.png',
+      FIN: 'gfx/flags/FIN_neutrality.png',
+      HUN: 'gfx/flags/HUN_neutrality.png',
+      ROM: 'gfx/flags/ROM_neutrality.png',
+      POL: 'gfx/flags/POL_neutrality.png',
+      SWE: 'gfx/flags/SWE_democratic.png',
       ENG: 'gfx/flags/ENG_democratic.png',
       FRA: 'gfx/flags/FRA_democratic.png',
       USA: 'gfx/flags/USA_democratic.png',
-      ITA: 'gfx/flags/ITA_fascism.png',
-      JAP: 'gfx/flags/JAP_fascism.png',
-      POL: 'gfx/flags/POL_neutrality.png',
-      CHI: 'gfx/flags/CHI_neutrality.png',
-      SPA: 'gfx/flags/SPA_neutrality.png',
-      SWE: 'gfx/flags/SWE_democratic.png',
-      BRA: 'gfx/flags/BRA_neutrality.png'
+      ITA: 'gfx/flags/ITA_fascism.png'
     };
     return known[tag] || 'gfx/flags/GER_fascism.png';
   }
 
+  // Terrain Banner resolver
+  function getTerrainBannerUrl(terrain) {
+    const map = {
+      urban: 'gfx/interface/terrains/terrain_urban.png',
+      forest: 'gfx/interface/terrains/terrain_forest.png',
+      hills: 'gfx/interface/terrains/terrain_hills.png',
+      mountain: 'gfx/interface/terrains/terrain_mountain.png',
+      marsh: 'gfx/interface/terrains/terrain_marsh.png',
+      plains: 'gfx/interface/terrains/terrain_plains.png',
+      water: 'gfx/interface/terrains/terrain_water_day.png'
+    };
+    return map[terrain] || 'gfx/interface/terrains/terrain_plains.png';
+  }
+
   // -------------------------------------------------------------
-  // CLAUSEWITZ 3D CAMERA CONTROLLER
+  // CLAUSEWITZ CAMERA CONTROLLER
   // -------------------------------------------------------------
   const camState = {
-    // Target position on map (Central Europe / Berlin default)
-    target: new THREE.Vector3(20, 0, 10),
-    current: new THREE.Vector3(20, 0, 10),
-    // Distance from target (Zoom)
-    distance: 140,
-    targetDistance: 140,
-    minDistance: 15,
-    maxDistance: 450,
-    // Pitch (tilt angle from vertical: 0 = straight down, ~65° = horizon tilt)
+    // Initial center on Berlin - Warsaw axis
+    target: new THREE.Vector3(-45, 0, 15),
+    current: new THREE.Vector3(-45, 0, 15),
+    distance: 160,
+    targetDistance: 160,
+    minDistance: 20,
+    maxDistance: 380,
     pitch: 0.45,
     targetPitch: 0.45,
     minPitch: 0.05,
     maxPitch: 1.15,
-    // Yaw (horizontal rotation)
     yaw: 0.0,
     targetYaw: 0.0,
     is3DActive: true
   };
 
+  const keysDown = {};
+  window.addEventListener('keydown', (e) => {
+    keysDown[e.code] = true;
+    if (e.code === 'Space') {
+      e.preventDefault();
+      togglePause();
+    } else if (e.code === 'F1') {
+      e.preventDefault();
+      modePolitical.click();
+    } else if (e.code === 'F2') {
+      e.preventDefault();
+      modeTerrain.click();
+    } else if (e.code === 'KeyT') {
+      btnToggle3D.click();
+    } else if (e.code === 'NumpadAdd' || e.code === 'Equal') {
+      e.preventDefault();
+      setSpeed(Math.min(5, gameSpeed + 1));
+    } else if (e.code === 'NumpadSubtract' || e.code === 'Minus') {
+      e.preventDefault();
+      setSpeed(Math.max(1, gameSpeed - 1));
+    }
+  });
+
+  window.addEventListener('keyup', (e) => {
+    keysDown[e.code] = false;
+  });
+
   function updateCamera() {
     // WASD & Arrow Keys Pan
-    if (typeof keysDown !== 'undefined') {
-      const panFactor = camState.distance * 0.0045;
-      const fwd = new THREE.Vector3(Math.sin(camState.yaw), 0, Math.cos(camState.yaw));
-      const rgt = new THREE.Vector3(Math.cos(camState.yaw), 0, -Math.sin(camState.yaw));
+    const panFactor = camState.distance * 0.0045;
+    const fwd = new THREE.Vector3(Math.sin(camState.yaw), 0, Math.cos(camState.yaw));
+    const rgt = new THREE.Vector3(Math.cos(camState.yaw), 0, -Math.sin(camState.yaw));
 
-      if (keysDown['KeyW'] || keysDown['ArrowUp']) {
-        camState.target.addScaledVector(fwd, -panFactor);
-      }
-      if (keysDown['KeyS'] || keysDown['ArrowDown']) {
-        camState.target.addScaledVector(fwd, panFactor);
-      }
-      if (keysDown['KeyA'] || keysDown['ArrowLeft']) {
-        camState.target.addScaledVector(rgt, -panFactor);
-      }
-      if (keysDown['KeyD'] || keysDown['ArrowRight']) {
-        camState.target.addScaledVector(rgt, panFactor);
-      }
-
-      camState.target.x = Math.max(-PLANE_W / 2, Math.min(PLANE_W / 2, camState.target.x));
-      camState.target.z = Math.max(-PLANE_H / 2, Math.min(PLANE_H / 2, camState.target.z));
+    if (keysDown['KeyW'] || keysDown['ArrowUp']) {
+      camState.target.addScaledVector(fwd, -panFactor);
+    }
+    if (keysDown['KeyS'] || keysDown['ArrowDown']) {
+      camState.target.addScaledVector(fwd, panFactor);
+    }
+    if (keysDown['KeyA'] || keysDown['ArrowLeft']) {
+      camState.target.addScaledVector(rgt, -panFactor);
+    }
+    if (keysDown['KeyD'] || keysDown['ArrowRight']) {
+      camState.target.addScaledVector(rgt, panFactor);
     }
 
-    // Smooth interpolation (Lerp)
+    camState.target.x = Math.max(-PLANE_W / 2, Math.min(PLANE_W / 2, camState.target.x));
+    camState.target.z = Math.max(-PLANE_H / 2, Math.min(PLANE_H / 2, camState.target.z));
+
+    // Smooth Lerp
     camState.current.lerp(camState.target, 0.14);
     camState.distance += (camState.targetDistance - camState.distance) * 0.14;
     camState.yaw += (camState.targetYaw - camState.yaw) * 0.14;
 
-    // Automatic 3D tilt curve: closer zoom -> tilt down towards horizon
     if (camState.is3DActive) {
       const zoomRatio = 1.0 - (camState.distance - camState.minDistance) / (camState.maxDistance - camState.minDistance);
-      // As zoom goes from 0 (far) to 1 (near), pitch tilts from 0.15 (near top-down) to 0.95 (~55 degrees)
-      const autoPitch = 0.15 + Math.pow(Math.max(0, zoomRatio), 0.8) * 0.85;
+      const autoPitch = 0.18 + Math.pow(Math.max(0, zoomRatio), 0.75) * 0.85;
       camState.targetPitch = Math.min(camState.maxPitch, autoPitch);
     } else {
-      camState.targetPitch = 0.05; // Almost flat top-down
+      camState.targetPitch = 0.04;
     }
     camState.pitch += (camState.targetPitch - camState.pitch) * 0.12;
 
-    // Spherical coordinates to Cartesian
     const cosPitch = Math.cos(camState.pitch);
     const sinPitch = Math.sin(camState.pitch);
     const cosYaw = Math.cos(camState.yaw);
@@ -188,9 +233,9 @@
     camera.lookAt(camState.current);
   }
 
-  // Mouse drag handling (Pan & Orbit)
+  // Mouse drag handling
   let isDragging = false;
-  let dragButton = 0; // 0 = left (pan), 2 = right (rotate)
+  let dragButton = 0;
   let prevMouseX = 0, prevMouseY = 0;
 
   window.addEventListener('mousedown', (e) => {
@@ -213,26 +258,23 @@
       prevMouseY = e.clientY;
 
       if (dragButton === 0) {
-        // Left drag: Pan on ground plane
-        const factor = camState.distance * 0.0018;
+        // Pan
+        const factor = camState.distance * 0.0016;
         const forward = new THREE.Vector3(Math.sin(camState.yaw), 0, Math.cos(camState.yaw));
         const right = new THREE.Vector3(Math.cos(camState.yaw), 0, -Math.sin(camState.yaw));
 
         camState.target.addScaledVector(right, -dx * factor);
         camState.target.addScaledVector(forward, -dy * factor);
-
-        // Clamp to map bounds
         camState.target.x = Math.max(-PLANE_W / 2, Math.min(PLANE_W / 2, camState.target.x));
         camState.target.z = Math.max(-PLANE_H / 2, Math.min(PLANE_H / 2, camState.target.z));
       } else if (dragButton === 2) {
-        // Right drag: Free 3D Rotation (Yaw)
+        // Orbit rotation
         camState.targetYaw -= dx * 0.006;
       }
       tooltip.classList.remove('visible');
       return;
     }
 
-    // Hover Raycasting
     handleHover(e.clientX, e.clientY);
   });
 
@@ -240,15 +282,14 @@
     isDragging = false;
   });
 
-  // Smooth mouse-wheel zoom
   window.addEventListener('wheel', (e) => {
     e.preventDefault();
-    const zoomFactor = e.deltaY < 0 ? 0.82 : 1.22;
-    camState.targetDistance = Math.min(camState.maxDistance, Math.max(camState.minDistance, camState.targetDistance * zoomFactor));
+    const factor = e.deltaY < 0 ? 0.82 : 1.22;
+    camState.targetDistance = Math.min(camState.maxDistance, Math.max(camState.minDistance, camState.targetDistance * factor));
   }, { passive: false });
 
   // -------------------------------------------------------------
-  // RAYCASTING & PROVINCE DETECTION
+  // PROVINCE RAYCASTING & 60 FPS HIGHLIGHT RENDERER
   // -------------------------------------------------------------
   const raycaster = new THREE.Raycaster();
   const mouseVec = new THREE.Vector2();
@@ -259,79 +300,163 @@
     mouseVec.y = -(screenY / window.innerHeight) * 2 + 1;
     raycaster.setFromCamera(mouseVec, camera);
     const hits = raycaster.intersectObject(terrainMesh);
-    return (hits.length > 0) ? hits[0] : null;
+    return hits.length > 0 ? hits[0] : null;
+  }
+
+  // Draw province highlight into dynamic canvas texture
+  function redrawHighlights() {
+    hlCtx.clearRect(0, 0, MAP_W, MAP_H);
+
+    // 1. Draw Selected Province (Golden Contour & Warm Overlay)
+    if (selectedPid > 0 && provBounds[selectedPid]) {
+      drawProvinceShape(selectedPid, 'rgba(255, 215, 60, 0.95)', 'rgba(255, 215, 60, 0.35)', true);
+    }
+
+    // 2. Draw Hovered Province (Crisp White/Cyan Contour & Soft Wash)
+    if (hoveredPid > 0 && hoveredPid !== selectedPid && provBounds[hoveredPid]) {
+      drawProvinceShape(hoveredPid, 'rgba(240, 250, 255, 0.95)', 'rgba(180, 220, 255, 0.22)', false);
+    }
+
+    hlTexture.needsUpdate = true;
+  }
+
+  function drawProvinceShape(pid, strokeColor, fillColor, isSelected) {
+    const b = provBounds[pid].box;
+    const minX = Math.max(0, b[0] - 1);
+    const minY = Math.max(0, b[1] - 1);
+    const maxX = Math.min(MAP_W - 1, b[2] + 1);
+    const maxY = Math.min(MAP_H - 1, b[3] + 1);
+
+    const bw = maxX - minX + 1;
+    const bh = maxY - minY + 1;
+    const imgData = hlCtx.getImageData(minX, minY, bw, bh);
+    const data = imgData.data;
+
+    // Parse colors
+    const strokeR = isSelected ? 255 : 240;
+    const strokeG = isSelected ? 215 : 250;
+    const strokeB = isSelected ? 60 : 255;
+    const fillR = isSelected ? 255 : 180;
+    const fillG = isSelected ? 215 : 220;
+    const fillB = isSelected ? 60 : 255;
+    const fillA = isSelected ? 80 : 50;
+
+    for (let y = minY; y <= maxY; y++) {
+      for (let x = minX; x <= maxX; x++) {
+        const curPid = provLookup[y * MAP_W + x];
+        if (curPid === pid) {
+          // Check if boundary pixel
+          const isEdge =
+            x === 0 || x === MAP_W - 1 || y === 0 || y === MAP_H - 1 ||
+            provLookup[y * MAP_W + (x - 1)] !== pid ||
+            provLookup[y * MAP_W + (x + 1)] !== pid ||
+            provLookup[(y - 1) * MAP_W + x] !== pid ||
+            provLookup[(y + 1) * MAP_W + x] !== pid;
+
+          const idx = ((y - minY) * bw + (x - minX)) * 4;
+          if (isEdge) {
+            data[idx] = strokeR;
+            data[idx + 1] = strokeG;
+            data[idx + 2] = strokeB;
+            data[idx + 3] = 240;
+          } else {
+            data[idx] = fillR;
+            data[idx + 1] = fillG;
+            data[idx + 2] = fillB;
+            data[idx + 3] = fillA;
+          }
+        }
+      }
+    }
+    hlCtx.putImageData(imgData, minX, minY);
   }
 
   function handleHover(screenX, screenY) {
     const hit = getRayIntersection(screenX, screenY);
     if (!hit || !hit.uv || !provLookup) {
+      if (hoveredPid !== 0) {
+        hoveredPid = 0;
+        redrawHighlights();
+      }
       tooltip.classList.remove('visible');
       return;
     }
 
-    const lx = Math.floor(hit.uv.x * LOOKUP_W);
-    const ly = Math.floor((1.0 - hit.uv.y) * LOOKUP_H);
-    if (lx < 0 || lx >= LOOKUP_W || ly < 0 || ly >= LOOKUP_H) {
+    const lx = Math.floor(hit.uv.x * MAP_W);
+    const ly = Math.floor((1.0 - hit.uv.y) * MAP_H);
+    if (lx < 0 || lx >= MAP_W || ly < 0 || ly >= MAP_H) {
       tooltip.classList.remove('visible');
       return;
     }
 
-    const pid = provLookup[ly * LOOKUP_W + lx] || 0;
-    if (pid > 0) {
-      let foundState = null;
-      for (const sid in statesData) {
-        if (statesData[sid].provinces.includes(pid)) {
-          foundState = statesData[sid];
-          break;
-        }
-      }
+    const pid = provLookup[ly * MAP_W + lx] || 0;
+    if (pid !== hoveredPid) {
+      hoveredPid = pid;
+      redrawHighlights();
+    }
 
-      if (foundState) {
-        ttFlagImg.src = getFlagUrl(foundState.owner);
-        ttState.textContent = foundState.name;
+    if (pid > 0 && provMeta[pid]) {
+      const p = provMeta[pid];
+      ttFlagImg.src = getFlagUrl(p.owner);
+      ttState.textContent = p.state_name;
 
-        let vpText = '';
-        if (foundState.vps && foundState.vps[pid]) {
-          vpText = ` • ★ ${foundState.vps[pid]} VP`;
-        }
-        ttSub.textContent = `${foundState.country_name} (${foundState.owner}) • Prov: #${pid}${vpText}`;
+      let vpText = p.vp > 0 ? ` • ★ ${p.vp} VP` : '';
+      const terrainLabel = {
+        urban: 'Urbano',
+        forest: 'Floresta',
+        hills: 'Colinas',
+        mountain: 'Montanha',
+        marsh: 'Pântano',
+        plains: 'Planície'
+      }[p.terrain] || p.terrain;
 
-        tooltip.style.left = `${screenX + 16}px`;
-        tooltip.style.top = `${screenY + 16}px`;
-        tooltip.classList.add('visible');
-      } else {
-        tooltip.classList.remove('visible');
-      }
+      const coastalLabel = p.coastal ? 'Litoral' : 'Interior';
+      ttSub.textContent = `${p.country_name} (${p.owner}) • Prov: #${pid} • ${terrainLabel} (${coastalLabel})${vpText}`;
+
+      tooltip.style.left = `${screenX + 16}px`;
+      tooltip.style.top = `${screenY + 16}px`;
+      tooltip.classList.add('visible');
     } else {
       tooltip.classList.remove('visible');
     }
   }
 
-  // Click to open State Window
+  // Click handler: Select Province & Show State details
   window.addEventListener('click', (e) => {
     if (e.target !== renderer.domElement) return;
     const hit = getRayIntersection(e.clientX, e.clientY);
     if (!hit || !hit.uv || !provLookup) return;
 
-    const lx = Math.floor(hit.uv.x * LOOKUP_W);
-    const ly = Math.floor((1.0 - hit.uv.y) * LOOKUP_H);
-    const pid = provLookup[ly * LOOKUP_W + lx] || 0;
+    const lx = Math.floor(hit.uv.x * MAP_W);
+    const ly = Math.floor((1.0 - hit.uv.y) * MAP_H);
+    const pid = provLookup[ly * MAP_W + lx] || 0;
 
     if (pid > 0) {
-      for (const sid in statesData) {
-        if (statesData[sid].provinces.includes(pid)) {
-          showStateDetails(statesData[sid]);
-          break;
+      selectedPid = pid;
+      redrawHighlights();
+
+      if (provMeta[pid]) {
+        const p = provMeta[pid];
+        const sid = String(p.state_id);
+        if (statesData[sid]) {
+          showStateDetails(statesData[sid], pid);
         }
       }
     }
   });
 
-  function showStateDetails(st) {
+  function showStateDetails(st, activePid) {
     stName.textContent = st.name;
-    stCategory.textContent = st.category || 'Regional';
+    stCategory.textContent = st.category || 'Megalopolis';
     stOwnerName.textContent = `${st.country_name} (${st.owner})`;
     stFlagImg.src = getFlagUrl(st.owner);
+
+    // Update Terrain Banner
+    if (activePid && provMeta[activePid]) {
+      stTerrainBanner.src = getTerrainBannerUrl(provMeta[activePid].terrain);
+    } else {
+      stTerrainBanner.src = 'gfx/interface/terrains/terrain_plains.png';
+    }
 
     const mpFormatted = st.manpower > 1000000
       ? (st.manpower / 1000000).toFixed(2) + 'M'
@@ -344,7 +469,8 @@
       for (const [vpid, pts] of Object.entries(st.vps)) {
         totalVps += pts;
         const li = document.createElement('li');
-        li.innerHTML = `<span>Província #${vpid}</span><strong>★ ${pts} VP</strong>`;
+        const isCurrent = parseInt(vpid) === activePid;
+        li.innerHTML = `<span>Província #${vpid} ${isCurrent ? '<b>(Selecionada)</b>' : ''}</span><strong style="color:var(--gold-title)">★ ${pts} VP</strong>`;
         vpList.appendChild(li);
       }
     }
@@ -366,16 +492,16 @@
   // Mapmodes
   modePolitical.addEventListener('click', () => {
     currentMapmode = 'political';
-    if (material && texPolitical) material.map = texPolitical;
-    material.needsUpdate = true;
+    if (terrainMaterial && texPolitical) terrainMaterial.map = texPolitical;
+    terrainMaterial.needsUpdate = true;
     modePolitical.classList.add('active');
     modeTerrain.classList.remove('active');
   });
 
   modeTerrain.addEventListener('click', () => {
     currentMapmode = 'terrain';
-    if (material && texSatellite) material.map = texSatellite;
-    material.needsUpdate = true;
+    if (terrainMaterial && texSatellite) terrainMaterial.map = texSatellite;
+    terrainMaterial.needsUpdate = true;
     modeTerrain.classList.add('active');
     modePolitical.classList.remove('active');
   });
@@ -392,8 +518,8 @@
     camState.targetDistance = Math.min(camState.maxDistance, camState.targetDistance * 1.4);
   });
   btnZoomReset.addEventListener('click', () => {
-    camState.target.set(20, 0, 10);
-    camState.targetDistance = 140;
+    camState.target.set(-45, 0, 15);
+    camState.targetDistance = 160;
     camState.targetYaw = 0.0;
   });
 
@@ -428,41 +554,10 @@
   }
 
   btnPause.addEventListener('click', togglePause);
-
-  const keysDown = {};
-  window.addEventListener('keydown', (e) => {
-    keysDown[e.code] = true;
-    if (e.code === 'Space') {
-      e.preventDefault();
-      togglePause();
-    } else if (e.code === 'F1') {
-      e.preventDefault();
-      modePolitical.click();
-    } else if (e.code === 'F2') {
-      e.preventDefault();
-      modeTerrain.click();
-    } else if (e.code === 'KeyT') {
-      btnToggle3D.click();
-    } else if (e.code === 'NumpadAdd' || e.code === 'Equal') {
-      e.preventDefault();
-      setSpeed(Math.min(5, gameSpeed + 1));
-    } else if (e.code === 'NumpadSubtract' || e.code === 'Minus') {
-      e.preventDefault();
-      setSpeed(Math.max(1, gameSpeed - 1));
-    }
-  });
-
-  window.addEventListener('keyup', (e) => {
-    keysDown[e.code] = false;
-  });
-
   speedPips.forEach(pip => {
-    pip.addEventListener('click', () => {
-      setSpeed(parseInt(pip.dataset.speed));
-    });
+    pip.addEventListener('click', () => setSpeed(parseInt(pip.dataset.speed)));
   });
 
-  // Window resize handler (strictly maintains 3D aspect ratio without texture distortion!)
   window.addEventListener('resize', () => {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
@@ -470,76 +565,93 @@
   });
 
   // -------------------------------------------------------------
-  // INITIALIZATION & TEXTURE LOADING
+  // INITIALIZATION
   // -------------------------------------------------------------
   async function init() {
     const texLoader = new THREE.TextureLoader();
 
-    // 1. Load Political Map Texture
-    texPolitical = await new Promise(res => texLoader.load('data/hoi4_political_map.jpg', res));
+    // 1. Load Theater Political & Satellite Textures
+    texPolitical = await new Promise(res => texLoader.load('data/theater_political_map.jpg', res));
     texPolitical.anisotropy = renderer.capabilities.getMaxAnisotropy();
 
-    // 2. Load Satellite Colormap Texture
-    texSatellite = await new Promise(res => texLoader.load('data/hoi4_satellite_colormap.jpg', res));
+    texSatellite = await new Promise(res => texLoader.load('data/theater_satellite_map.jpg', res));
     texSatellite.anisotropy = renderer.capabilities.getMaxAnisotropy();
 
-    // 3. Load 3D Heightmap Displacement Texture (physically elevates vertices!)
-    const texDisp = await new Promise(res => texLoader.load('data/hoi4_heightmap_displacement.jpg', res));
+    // 2. Load 3D Elevation Displacement & Normal Map
+    const texHeight = await new Promise(res => texLoader.load('data/theater_heightmap.jpg', res));
+    const texNormal = await new Promise(res => texLoader.load('data/theater_normal.jpg', res));
 
-    // 4. Load 3D Normal Map
-    let texNormal = null;
-    try {
-      texNormal = await new Promise(res => texLoader.load('data/hoi4_normal_map.jpg', res));
-    } catch (_) {}
+    // 3. Create 3D Terrain Plane Geometry
+    const geometry = new THREE.PlaneGeometry(PLANE_W, PLANE_H, 270, 180);
+    geometry.rotateX(-Math.PI / 2);
 
-    // Create 3D Terrain Plane Geometry (Subdivided for vertex height elevation)
-    const geometry = new THREE.PlaneGeometry(PLANE_W, PLANE_H, 512, 256);
-    geometry.rotateX(-Math.PI / 2); // Lay flat on XZ plane
-
-    material = new THREE.MeshStandardMaterial({
+    terrainMaterial = new THREE.MeshStandardMaterial({
       map: texPolitical,
-      displacementMap: texDisp,
-      displacementScale: 14.0, // Mountains like the Alps physically rise up!
+      displacementMap: texHeight,
+      displacementScale: 12.0,
       displacementBias: -1.0,
       normalMap: texNormal,
-      normalScale: new THREE.Vector2(0.85, 0.85),
-      roughness: 0.72,
+      normalScale: new THREE.Vector2(0.9, 0.9),
+      roughness: 0.68,
       metalness: 0.08
     });
 
-    terrainMesh = new THREE.Mesh(geometry, material);
+    terrainMesh = new THREE.Mesh(geometry, terrainMaterial);
     terrainMesh.receiveShadow = true;
     scene.add(terrainMesh);
 
-    // Shiny Ocean Water Surface Plane (subtle gloss underneath land)
+    // 4. Interactive Province Highlight Layer Mesh (Positioned just above terrain)
+    const hlGeo = new THREE.PlaneGeometry(PLANE_W, PLANE_H, 270, 180);
+    hlGeo.rotateX(-Math.PI / 2);
+    const hlMat = new THREE.MeshBasicMaterial({
+      map: hlTexture,
+      transparent: true,
+      depthWrite: false,
+      blending: THREE.NormalBlending
+    });
+    hlMesh = new THREE.Mesh(hlGeo, hlMat);
+    hlMesh.position.y = 0.35; // Slight offset above terrain
+    scene.add(hlMesh);
+
+    // 5. Water Plane underneath land
     const waterGeo = new THREE.PlaneGeometry(PLANE_W * 1.05, PLANE_H * 1.05);
     waterGeo.rotateX(-Math.PI / 2);
     const waterMat = new THREE.MeshStandardMaterial({
       color: 0x0e1b28,
-      roughness: 0.15,
-      metalness: 0.8
+      roughness: 0.12,
+      metalness: 0.85
     });
-    waterMesh = new THREE.Mesh(waterGeo, waterMat);
+    const waterMesh = new THREE.Mesh(waterGeo, waterMat);
     waterMesh.position.y = -0.5;
     scene.add(waterMesh);
 
-    // Load JSONs and Binary Lookup Table
+    // 6. Load Datasets
     try {
-      const stResp = await fetch('data/hoi4_states.json');
-      statesData = await stResp.json();
+      const [binResp, provResp, boundsResp, statesResp] = await Promise.all([
+        fetch('data/theater_prov_lookup.bin'),
+        fetch('data/theater_provinces.json'),
+        fetch('data/theater_prov_bounds.json'),
+        fetch('data/hoi4_states.json')
+      ]);
 
-      const cResp = await fetch('data/hoi4_countries.json');
-      countriesData = await cResp.json();
-
-      const binResp = await fetch('data/hoi4_prov_lookup_2816.bin');
       const binBuf = await binResp.arrayBuffer();
       provLookup = new Uint16Array(binBuf);
-      console.log('HOI4 3D Engine: Province Lookup Loaded (2816x1024)');
+      provMeta = await provResp.json();
+      provBounds = await boundsResp.json();
+      statesData = await statesResp.json();
+
+      console.log('Central/Eastern Theater Loaded: 4012 Active Provinces');
+      redrawHighlights();
+
+      // Show Berlin by default in state window
+      if (statesData["64"]) {
+        showStateDetails(statesData["64"], 6521);
+      }
     } catch (err) {
-      console.error('Failed to load HOI4 data files:', err);
+      console.error('Failed to load theater data files:', err);
     }
 
-    // Start 60 FPS Render Loop
+    // 60 FPS Render Loop
     function renderLoop() {
       requestAnimationFrame(renderLoop);
       updateCamera();
