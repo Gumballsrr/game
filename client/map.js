@@ -1219,97 +1219,103 @@
   window.addEventListener('resize',resize);
 
   // ─── CARREGAMENTO ───
-  fetch('data/map.json')
-    .then(r=>{if(!r.ok)throw new Error('HTTP '+r.status);return r.json();})
-    .then(d=>{
-      data=d; SC=d.meta.scale; owners=d.owners; bounds=d.meta.bounds;
-      states=d.states; provinces=d.provinces; bgs=d.background;
-      projection=d.meta.projection||'equirectangular';
+  function initMapData(d) {
+    data=d; SC=d.meta.scale; owners=d.owners; bounds=d.meta.bounds;
+    states=d.states; provinces=d.provinces; bgs=d.background;
+    projection=d.meta.projection||'equirectangular';
 
-      for(const s of states) s.g=build(s.rings);
-      provinces.forEach((p,i)=>{
-        p.id=i+1; p.g=build(p.r); p.state=states[p.s]; p.owner=p.state.owner;
-      });
-      for(const b of bgs) b.g=build(b.rings);
-      xscale=d.meta.xscale||1;
-
-      // Rios
-      riverPaths={};
-      const wt=d.water||{rivers:{},lakes:[]};
-      for(const w of Object.keys(wt.rivers)){
-        const p=new Path2D();
-        for(const flat of wt.rivers[w]){const pts=decode(flat);for(let i=0;i<pts.length;i+=2){if(i===0)p.moveTo(pts[i],pts[i+1]);else p.lineTo(pts[i],pts[i+1]);}}
-        riverPaths[w]=p;
-      }
-      lakePath=new Path2D();
-      for(const lake of wt.lakes) for(const flat of lake){
-        const pts=decode(flat);
-        for(let i=0;i<pts.length;i+=2){if(i===0)lakePath.moveTo(pts[i],pts[i+1]);else lakePath.lineTo(pts[i],pts[i+1]);}
-        lakePath.closePath();
-      }
-
-      // Terreno
-      for(const p of provinces) p.terrain=assignTerrain(p);
-
-      // Bordas de rio (para detecção de custo de movimento)
-      riverEdges=buildRiverEdges(wt,provinces);
-
-      // Rios nas bordas geométricas das províncias
-      buildRiverBorderPaths(wt,provinces);
-
-      cityProvs=provinces.filter(p=>p.c);
-
-      // Paths por owner e por terrain
-      for(const code of Object.keys(owners)){
-        const prov=new Path2D(),st=new Path2D(),city=new Path2D(),cap=new Path2D();
-        let any=false;
-        for(const p of provinces){
-          if(p.owner!==code)continue;
-          prov.addPath(p.g.path);any=true;
-          if(p.c)city.addPath(p.g.path);
-          if(p.k)cap.addPath(p.g.path);
-        }
-        for(const s of states) if(s.owner===code) st.addPath(s.g.path);
-        if(!any)continue;
-        ownerPaths[code]={prov,states:st,city,cap,outline:build(d.outlines[code]||[]).path};
-
-        // paths por terrain — cor HOI4
-        terrainPaths[code]={};
-        const baseColor=hoi4Color(code,owners[code].color);
-        const byTerrain={};
-        for(const p of provinces){
-          if(p.owner!==code)continue;
-          const t=p.terrain;
-          if(!byTerrain[t])byTerrain[t]=new Path2D();
-          byTerrain[t].addPath(p.g.path);
-        }
-        for(const t of Object.keys(byTerrain)){
-          terrainPaths[code][t]={path:byTerrain[t],fill:terrainFill(baseColor,t)};
-        }
-      }
-
-      // centróide dos estados para label
-      for(const s of states){
-        if(!s.label){
-          const b=s.g.bbox;
-          s.label=[(b[0]+b[2])/2,(b[1]+b[3])/2];
-        }
-        s.minor=(s.g.barea<0.01);
-      }
-      stateOrder=states.slice().sort((a,b)=>b.g.barea-a.g.barea);
-
-      buildLegend();
-      resize();
-
-      window.__map={
-        view,states,provinces,cityProvs,owners,fitAll,hit,schedule,
-        riverEdges,TERRAIN_INFO,
-        get hover(){return hover;}
-      };
-      if(hooks.ready)hooks.ready(window.__map);
-    })
-    .catch(err=>{
-      infoEl.innerHTML='<p class="hint">Não foi possível carregar o mapa ('+esc(err.message)+
-        '). Abra a página por um servidor web, não direto do arquivo.</p>';
+    for(const s of states) s.g=build(s.rings);
+    provinces.forEach((p,i)=>{
+      p.id=i+1; p.g=build(p.r); p.state=states[p.s]; p.owner=p.state.owner;
     });
+    for(const b of bgs) b.g=build(b.rings);
+    xscale=d.meta.xscale||1;
+
+    // Rios
+    riverPaths={};
+    const wt=d.water||{rivers:{},lakes:[]};
+    for(const w of Object.keys(wt.rivers)){
+      const p=new Path2D();
+      for(const flat of wt.rivers[w]){const pts=decode(flat);for(let i=0;i<pts.length;i+=2){if(i===0)p.moveTo(pts[i],pts[i+1]);else p.lineTo(pts[i],pts[i+1]);}}
+      riverPaths[w]=p;
+    }
+    lakePath=new Path2D();
+    for(const lake of wt.lakes) for(const flat of lake){
+      const pts=decode(flat);
+      for(let i=0;i<pts.length;i+=2){if(i===0)lakePath.moveTo(pts[i],pts[i+1]);else lakePath.lineTo(pts[i],pts[i+1]);}
+      lakePath.closePath();
+    }
+
+    // Terreno
+    for(const p of provinces) p.terrain=assignTerrain(p);
+
+    // Bordas de rio (para detecção de custo de movimento)
+    riverEdges=buildRiverEdges(wt,provinces);
+
+    // Rios nas bordas geométricas das províncias
+    buildRiverBorderPaths(wt,provinces);
+
+    cityProvs=provinces.filter(p=>p.c);
+
+    // Paths por owner e por terrain
+    for(const code of Object.keys(owners)){
+      const prov=new Path2D(),st=new Path2D(),city=new Path2D(),cap=new Path2D();
+      let any=false;
+      for(const p of provinces){
+        if(p.owner!==code)continue;
+        prov.addPath(p.g.path);any=true;
+        if(p.c)city.addPath(p.g.path);
+        if(p.k)cap.addPath(p.g.path);
+      }
+      for(const s of states) if(s.owner===code) st.addPath(s.g.path);
+      if(!any)continue;
+      ownerPaths[code]={prov,states:st,city,cap,outline:build(d.outlines[code]||[]).path};
+
+      // paths por terrain — cor HOI4
+      terrainPaths[code]={};
+      const baseColor=hoi4Color(code,owners[code].color);
+      const byTerrain={};
+      for(const p of provinces){
+        if(p.owner!==code)continue;
+        const t=p.terrain;
+        if(!byTerrain[t])byTerrain[t]=new Path2D();
+        byTerrain[t].addPath(p.g.path);
+      }
+      for(const t of Object.keys(byTerrain)){
+        terrainPaths[code][t]={path:byTerrain[t],fill:terrainFill(baseColor,t)};
+      }
+    }
+
+    // centróide dos estados para label
+    for(const s of states){
+      if(!s.label){
+        const b=s.g.bbox;
+        s.label=[(b[0]+b[2])/2,(b[1]+b[3])/2];
+      }
+      s.minor=(s.g.barea<0.01);
+    }
+    stateOrder=states.slice().sort((a,b)=>b.g.barea-a.g.barea);
+
+    buildLegend();
+    resize();
+
+    window.__map={
+      view,states,provinces,cityProvs,owners,fitAll,hit,schedule,
+      riverEdges,TERRAIN_INFO,
+      get hover(){return hover;}
+    };
+    if(hooks.ready)hooks.ready(window.__map);
+  }
+
+  if (window.__MAP_DATA) {
+    initMapData(window.__MAP_DATA);
+  } else {
+    fetch('data/map.json')
+      .then(r=>{if(!r.ok)throw new Error('HTTP '+r.status);return r.json();})
+      .then(d=>initMapData(d))
+      .catch(err=>{
+        infoEl.innerHTML='<p class="hint">Não foi possível carregar o mapa ('+esc(err.message)+
+          '). Abra a página por um servidor web, não direto do arquivo.</p>';
+      });
+  }
 })();
