@@ -1,25 +1,29 @@
 /**
  * Hearts of Iron IV - Official Web Map Engine
  * Reverse engineered from Clausewitz Engine binaries & assets.
+ * 3D Perspective Tilt, Smooth Inertial Zoom, Official Textures & Colormaps.
  */
 (() => {
   'use strict';
 
+  const planeEl = document.getElementById('map-3d-plane');
   const canvas = document.getElementById('hoi4-canvas');
   const ctx = canvas.getContext('2d');
 
   // UI Elements
   const tooltip = document.getElementById('hover-tooltip');
+  const ttFlagImg = document.getElementById('tt-flag-img');
   const ttState = document.getElementById('tt-state');
   const ttSub = document.getElementById('tt-sub');
-  
+
   const stateWin = document.getElementById('state-window');
   const stName = document.getElementById('st-name');
   const stCategory = document.getElementById('st-category');
-  const stOwner = document.getElementById('st-owner');
-  const stFlag = document.getElementById('st-flag');
+  const stOwnerName = document.getElementById('st-owner-name');
+  const stFlagImg = document.getElementById('st-flag-img');
   const stManpower = document.getElementById('st-manpower');
   const stVps = document.getElementById('st-vps');
+  const stInfra = document.getElementById('st-infra');
   const stProvCount = document.getElementById('st-prov-count');
   const vpList = document.getElementById('vp-list');
   const btnCloseState = document.getElementById('btn-close-state');
@@ -27,14 +31,18 @@
   // Clock & Speeds
   const dateDisplay = document.getElementById('date-display');
   const btnPause = document.getElementById('btn-pause');
-  const speedBtns = document.querySelectorAll('.btn-speed');
+  const speedPips = document.querySelectorAll('.speed-step-indicator .pip');
 
-  // Zoom controls
+  // Dock Buttons
+  const modePolitical = document.getElementById('mode-political');
+  const modeTerrain = document.getElementById('mode-terrain');
+  const btnToggle3D = document.getElementById('btn-toggle-3d');
+  const lbl3DStatus = document.getElementById('lbl-3d-status');
   const btnZoomIn = document.getElementById('btn-zoom-in');
   const btnZoomOut = document.getElementById('btn-zoom-out');
   const btnZoomReset = document.getElementById('btn-zoom-reset');
 
-  // Map state
+  // Map Data
   let statesData = {};
   let countriesData = {};
   let provLookup = null; // Uint16Array 2816x1024
@@ -43,103 +51,106 @@
   const MAP_W = 5632;
   const MAP_H = 2048;
 
-  let mapImg = new Image();
-  let mapLoaded = false;
+  // Official Textures
+  const imgPolitical = new Image();
+  const imgTerrain = new Image();
+  let politicalLoaded = false;
+  let terrainLoaded = false;
+  let currentMode = 'political'; // 'political' | 'terrain'
+  let enable3D = true;
 
-  // Viewport transformation: scale (k), translation (tx, ty)
+  // Camera & Viewport State (Clausewitz 3D Engine)
   const view = {
     k: 1.0,
+    targetK: 1.0,
     tx: 0,
+    targetTx: 0,
     ty: 0,
-    minK: 0.5,
+    targetTy: 0,
+    pitch: 0,
+    targetPitch: 0,
+    minK: 0.6,
     maxK: 12.0
   };
 
   let isDragging = false;
-  let startX = 0, startY = 0;
-  let hoveredProvId = 0;
-  let hoveredStateId = 0;
+  let dragStartX = 0, dragStartY = 0;
+  let mouseScreenX = 0, mouseScreenY = 0;
   let selectedStateId = 0;
 
-  // Country Flag Emoji Map
-  const FLAGS = {
-    GER: '🇩🇪', SOV: '☭', ENG: '🇬🇧', FRA: '🇫🇷', USA: '🇺🇸',
-    ITA: '🇮🇹', JAP: '🇯🇵', POL: '🇵🇱', CHI: '🇨🇳', CAN: '🇨🇦',
-    AST: '🇦🇺', RAJ: '🇮🇳', SAF: '🇿🇦', NZL: '🇳🇿', BRA: '🇧🇷',
-    ARG: '🇦🇷', MEX: '🇲🇽', SPA: '🇪🇸', POR: '🇵🇹', SWE: '🇸🇪',
-    NOR: '🇳🇴', FIN: '🇫🇮', DEN: '🇩🇰', HOL: '🇳🇱', BEL: '🇧🇪',
-    SWI: '🇨🇭', AUS: '🇦🇹', CZE: '🇨🇿', HUN: '🇭🇺', ROM: '🇷🇴',
-    YUG: '🇷🇸', BUL: '🇧🇬', GRE: '🇬🇷', TUR: '🇹🇷', PER: '🇮🇷',
-    AFG: '🇦🇫', SAU: '🇸🇦', EGY: '🇪🇬', ETH: '🇪🇹', SIA: '🇹🇭'
-  };
+  // Flag path resolver
+  function getFlagUrl(tag) {
+    const known = {
+      GER: 'gfx/flags/GER_fascism.png',
+      SOV: 'gfx/flags/SOV_communism.png',
+      ENG: 'gfx/flags/ENG_democratic.png',
+      FRA: 'gfx/flags/FRA_democratic.png',
+      USA: 'gfx/flags/USA_democratic.png',
+      ITA: 'gfx/flags/ITA_fascism.png',
+      JAP: 'gfx/flags/JAP_fascism.png',
+      POL: 'gfx/flags/POL_neutrality.png',
+      CHI: 'gfx/flags/CHI_neutrality.png',
+      SPA: 'gfx/flags/SPA_neutrality.png',
+      SWE: 'gfx/flags/SWE_democratic.png',
+      BRA: 'gfx/flags/BRA_neutrality.png'
+    };
+    return known[tag] || 'gfx/flags/GER_fascism.png';
+  }
 
-  // Resize canvas to window
+  // Resize canvas
   function resize() {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
-    render();
   }
   window.addEventListener('resize', resize);
 
-  // Initialize View to Central Europe (Berlin)
+  // Center on Europe (Clausewitz default start: Berlin x=3010, y=479)
   function centerEurope() {
-    const scale = Math.max(canvas.width / MAP_W, canvas.height / MAP_H) * 2.2;
-    view.k = scale;
-    // Berlin coords roughly: x=3010, y=479
-    view.tx = canvas.width / 2 - 3010 * view.k;
-    view.ty = canvas.height / 2 - 479 * view.k;
-    clampView();
-    render();
+    const scale = Math.max(canvas.width / MAP_W, canvas.height / MAP_H) * 2.8;
+    view.targetK = scale;
+    view.targetTx = canvas.width / 2 - 3010 * scale;
+    view.targetTy = canvas.height / 2 - 479 * scale;
   }
 
-  function clampView() {
-    const curW = MAP_W * view.k;
-    const curH = MAP_H * view.k;
+  function clampTargetView() {
+    const curW = MAP_W * view.targetK;
+    const curH = MAP_H * view.targetK;
     if (curW < canvas.width) {
-      view.tx = (canvas.width - curW) / 2;
+      view.targetTx = (canvas.width - curW) / 2;
     } else {
-      view.tx = Math.min(0, Math.max(canvas.width - curW, view.tx));
+      view.targetTx = Math.min(0, Math.max(canvas.width - curW, view.targetTx));
     }
     if (curH < canvas.height) {
-      view.ty = (canvas.height - curH) / 2;
+      view.targetTy = (canvas.height - curH) / 2;
     } else {
-      view.ty = Math.min(0, Math.max(canvas.height - curH, view.ty));
+      view.targetTy = Math.min(0, Math.max(canvas.height - curH, view.targetTy));
     }
   }
 
-  // Render loop
-  function render() {
-    if (!mapLoaded) {
-      ctx.fillStyle = '#0b1219';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.fillStyle = '#c8a848';
-      ctx.font = '20px "Barlow Condensed"';
-      ctx.textAlign = 'center';
-      ctx.fillText('Carregando Mapa Oficial do Hearts of Iron IV...', canvas.width / 2, canvas.height / 2);
-      return;
+  // 3D Perspective Raycasting Unprojection
+  // Given screen coords (sx, sy), compute the 2D plane coords (px, py) accounting for perspective tilt
+  function screenToPlane(sx, sy) {
+    if (!enable3D || view.pitch <= 0.1) {
+      return [sx, sy];
     }
+    const cx = canvas.width / 2;
+    const cy = canvas.height / 2;
+    const rad = (view.pitch * Math.PI) / 180.0;
+    const dist = 1200; // perspective distance matching CSS
 
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.imageSmoothingEnabled = view.k > 2.0;
+    const dy = sy - cy;
+    const denom = Math.cos(rad) - (dy / dist) * Math.sin(rad);
+    if (Math.abs(denom) < 0.001) return [sx, sy];
 
-    // Draw Map Texture
-    ctx.drawImage(
-      mapImg,
-      0, 0, MAP_W, MAP_H,
-      view.tx, view.ty, MAP_W * view.k, MAP_H * view.k
-    );
-
-    // If a state is selected, draw highlight or marker
-    if (selectedStateId && statesData[selectedStateId]) {
-      const st = statesData[selectedStateId];
-      // Draw state banner / indicator
-    }
+    const py = cy + dy / denom;
+    const px = cx + (sx - cx) / denom;
+    return [px, py];
   }
 
-  // Coordinate transforms
   function screenToMap(sx, sy) {
-    const mx = (sx - view.tx) / view.k;
-    const my = (sy - view.ty) / view.k;
+    const [px, py] = screenToPlane(sx, sy);
+    const mx = (px - view.tx) / view.k;
+    const my = (py - view.ty) / view.k;
     return [mx, my];
   }
 
@@ -148,35 +159,90 @@
     const lx = Math.floor((mx / MAP_W) * LOOKUP_W);
     const ly = Math.floor((my / MAP_H) * LOOKUP_H);
     if (lx < 0 || lx >= LOOKUP_W || ly < 0 || ly >= LOOKUP_H) return 0;
-    const idx = ly * LOOKUP_W + lx;
-    return provLookup[idx] || 0;
+    return provLookup[ly * LOOKUP_W + lx] || 0;
   }
 
-  // Mouse interaction
+  // Smooth Animation Loop (60 FPS Inertial Interpolation)
+  function animate() {
+    // Lerp translation & scale
+    view.k += (view.targetK - view.k) * 0.18;
+    view.tx += (view.targetTx - view.tx) * 0.18;
+    view.ty += (view.targetTy - view.ty) * 0.18;
+
+    // Calculate dynamic 3D camera pitch based on zoom level (Clausewitz tilt curve)
+    if (enable3D) {
+      // Below 1.5x zoom: flat top-down. Above 1.5x zoom: tilt up to 45°
+      if (view.k > 1.4) {
+        view.targetPitch = Math.min(46.0, (view.k - 1.4) * 8.5);
+      } else {
+        view.targetPitch = 0.0;
+      }
+    } else {
+      view.targetPitch = 0.0;
+    }
+    view.pitch += (view.targetPitch - view.pitch) * 0.12;
+
+    // Apply 3D perspective tilt to plane
+    if (enable3D && Math.abs(view.pitch) > 0.05) {
+      planeEl.style.transform = `rotateX(${view.pitch.toFixed(2)}deg)`;
+    } else {
+      planeEl.style.transform = 'none';
+    }
+
+    render();
+    requestAnimationFrame(animate);
+  }
+
+  // Draw frame
+  function render() {
+    if (!politicalLoaded) {
+      ctx.fillStyle = '#070e17';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = '#f5d47a';
+      ctx.font = '22px "Barlow Condensed"';
+      ctx.textAlign = 'center';
+      ctx.fillText('Carregando Texturas Oficiais do Hearts of Iron IV...', canvas.width / 2, canvas.height / 2);
+      return;
+    }
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.imageSmoothingEnabled = view.k > 2.2;
+
+    // Render active texture mode (Political vs Satellite Terrain)
+    const activeImg = (currentMode === 'terrain' && terrainLoaded) ? imgTerrain : imgPolitical;
+
+    ctx.drawImage(
+      activeImg,
+      0, 0, activeImg.naturalWidth, activeImg.naturalHeight,
+      view.tx, view.ty, MAP_W * view.k, MAP_H * view.k
+    );
+  }
+
+  // Mouse drag & interaction
   canvas.addEventListener('mousedown', (e) => {
     if (e.button !== 0) return;
     isDragging = true;
-    startX = e.clientX - view.tx;
-    startY = e.clientY - view.ty;
+    dragStartX = e.clientX - view.targetTx;
+    dragStartY = e.clientY - view.targetTy;
   });
 
   window.addEventListener('mousemove', (e) => {
+    mouseScreenX = e.clientX;
+    mouseScreenY = e.clientY;
+
     if (isDragging) {
-      view.tx = e.clientX - startX;
-      view.ty = e.clientY - startY;
-      clampView();
-      render();
+      view.targetTx = e.clientX - dragStartX;
+      view.targetTy = e.clientY - dragStartY;
+      clampTargetView();
       tooltip.classList.remove('visible');
       return;
     }
 
-    // Hit test province & state
+    // Hover detection with 3D unprojected raycast
     const [mx, my] = screenToMap(e.clientX, e.clientY);
     const pid = getProvinceAt(mx, my);
 
     if (pid > 0) {
-      hoveredProvId = pid;
-      // Find state containing this province
       let foundState = null;
       for (const sid in statesData) {
         if (statesData[sid].provinces.includes(pid)) {
@@ -186,16 +252,15 @@
       }
 
       if (foundState) {
-        hoveredStateId = foundState.id;
-        const flag = FLAGS[foundState.owner] || '🏴';
-        ttState.textContent = `${flag} ${foundState.name}`;
-        
+        ttFlagImg.src = getFlagUrl(foundState.owner);
+        ttState.textContent = foundState.name;
+
         let vpText = '';
         if (foundState.vps && foundState.vps[pid]) {
           vpText = ` • ⭐ ${foundState.vps[pid]} VP`;
         }
-        ttSub.textContent = `${foundState.country_name} (${foundState.owner}) • Prov: ${pid}${vpText}`;
-        
+        ttSub.textContent = `${foundState.country_name} (${foundState.owner}) • Prov: #${pid}${vpText}`;
+
         tooltip.style.left = `${e.clientX + 16}px`;
         tooltip.style.top = `${e.clientY + 16}px`;
         tooltip.classList.add('visible');
@@ -207,11 +272,24 @@
     }
   });
 
-  window.addEventListener('mouseup', (e) => {
-    if (isDragging) {
-      isDragging = false;
-    }
+  window.addEventListener('mouseup', () => {
+    isDragging = false;
   });
+
+  // Smooth mouse-wheel zoom focused on cursor
+  canvas.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const zoomFactor = e.deltaY < 0 ? 1.22 : 0.82;
+    const newK = Math.min(view.maxK, Math.max(view.minK, view.targetK * zoomFactor));
+
+    const [planeX, planeY] = screenToPlane(e.clientX, e.clientY);
+
+    view.targetTx = planeX - (planeX - view.targetTx) * (newK / view.targetK);
+    view.targetTy = planeY - (planeY - view.targetTy) * (newK / view.targetK);
+    view.targetK = newK;
+
+    clampTargetView();
+  }, { passive: false });
 
   // Click to open State Details
   canvas.addEventListener('click', (e) => {
@@ -227,48 +305,16 @@
     }
   });
 
-  // Mouse wheel zoom
-  canvas.addEventListener('wheel', (e) => {
-    e.preventDefault();
-    const zoomFactor = e.deltaY < 0 ? 1.18 : 0.84;
-    const newK = Math.min(view.maxK, Math.max(view.minK, view.k * zoomFactor));
-
-    const mouseX = e.clientX;
-    const mouseY = e.clientY;
-
-    view.tx = mouseX - (mouseX - view.tx) * (newK / view.k);
-    view.ty = mouseY - (mouseY - view.ty) * (newK / view.k);
-    view.k = newK;
-
-    clampView();
-    render();
-  }, { passive: false });
-
-  // Zoom Buttons
-  btnZoomIn.addEventListener('click', () => {
-    view.k = Math.min(view.maxK, view.k * 1.3);
-    clampView();
-    render();
-  });
-  btnZoomOut.addEventListener('click', () => {
-    view.k = Math.max(view.minK, view.k / 1.3);
-    clampView();
-    render();
-  });
-  btnZoomReset.addEventListener('click', () => {
-    centerEurope();
-  });
-
-  // State window detail popup
+  // State window details
   function showStateDetails(st) {
     selectedStateId = st.id;
     stName.textContent = st.name;
     stCategory.textContent = st.category || 'Regional';
-    stOwner.textContent = `${st.country_name} (${st.owner})`;
-    stFlag.textContent = FLAGS[st.owner] || '🏴';
-    
-    const mpFormatted = st.manpower > 1000000 
-      ? (st.manpower / 1000000).toFixed(2) + 'M' 
+    stOwnerName.textContent = `${st.country_name} (${st.owner})`;
+    stFlagImg.src = getFlagUrl(st.owner);
+
+    const mpFormatted = st.manpower > 1000000
+      ? (st.manpower / 1000000).toFixed(2) + 'M'
       : (st.manpower / 1000).toFixed(0) + 'K';
     stManpower.textContent = mpFormatted;
 
@@ -278,26 +324,55 @@
       for (const [vpid, pts] of Object.entries(st.vps)) {
         totalVps += pts;
         const li = document.createElement('li');
-        li.innerHTML = `<span>Província #${vpid}</span><strong>${pts} VP</strong>`;
+        li.innerHTML = `<span>Província #${vpid}</span><strong>⭐ ${pts} VP</strong>`;
         vpList.appendChild(li);
       }
     }
     if (totalVps === 0) {
       const li = document.createElement('li');
-      li.textContent = 'Nenhuma cidade principal';
+      li.textContent = 'Nenhum centro urbano';
       vpList.appendChild(li);
     }
-    stVps.textContent = `${totalVps} VP`;
+    stVps.textContent = `⭐ ${totalVps} VP`;
     stProvCount.textContent = st.provinces.length;
 
     stateWin.classList.add('open');
-    render();
   }
 
   btnCloseState.addEventListener('click', () => {
     stateWin.classList.remove('open');
     selectedStateId = 0;
-    render();
+  });
+
+  // Mapmode Toggles
+  modePolitical.addEventListener('click', () => {
+    currentMode = 'political';
+    modePolitical.classList.add('active');
+    modeTerrain.classList.remove('active');
+  });
+
+  modeTerrain.addEventListener('click', () => {
+    currentMode = 'terrain';
+    modeTerrain.classList.add('active');
+    modePolitical.classList.remove('active');
+  });
+
+  btnToggle3D.addEventListener('click', () => {
+    enable3D = !enable3D;
+    lbl3DStatus.textContent = enable3D ? 'ON' : 'OFF';
+  });
+
+  // Zoom Buttons
+  btnZoomIn.addEventListener('click', () => {
+    view.targetK = Math.min(view.maxK, view.targetK * 1.35);
+    clampTargetView();
+  });
+  btnZoomOut.addEventListener('click', () => {
+    view.targetK = Math.max(view.minK, view.targetK / 1.35);
+    clampTargetView();
+  });
+  btnZoomReset.addEventListener('click', () => {
+    centerEurope();
   });
 
   // Time Engine
@@ -319,34 +394,45 @@
 
   let timer = setInterval(updateClock, 1000);
 
-  btnPause.addEventListener('click', togglePause);
-  window.addEventListener('keydown', (e) => {
-    if (e.code === 'Space') {
-      e.preventDefault();
-      togglePause();
-    }
-  });
-
   function togglePause() {
     isPaused = !isPaused;
     btnPause.textContent = isPaused ? '▶' : '⏸';
   }
 
-  speedBtns.forEach(btn => {
-    btn.addEventListener('click', () => {
-      speedBtns.forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      gameSpeed = parseInt(btn.dataset.speed);
+  btnPause.addEventListener('click', togglePause);
+  window.addEventListener('keydown', (e) => {
+    if (e.code === 'Space') {
+      e.preventDefault();
+      togglePause();
+    } else if (e.code === 'F1') {
+      e.preventDefault();
+      modePolitical.click();
+    } else if (e.code === 'F2') {
+      e.preventDefault();
+      modeTerrain.click();
+    } else if (e.code === 'KeyT') {
+      btnToggle3D.click();
+    }
+  });
+
+  speedPips.forEach(pip => {
+    pip.addEventListener('click', () => {
+      const spd = parseInt(pip.dataset.speed);
+      gameSpeed = spd;
+      speedPips.forEach(p => {
+        p.classList.toggle('active', parseInt(p.dataset.speed) <= spd);
+      });
       clearInterval(timer);
-      const intervals = [1000, 700, 450, 250, 100];
-      timer = setInterval(updateClock, intervals[gameSpeed - 1]);
+      const intervals = [1000, 650, 400, 220, 90];
+      timer = setInterval(updateClock, intervals[spd - 1]);
     });
   });
 
-  // Load All Assets
+  // Asset Initialization
   async function init() {
     resize();
-    render();
+    centerEurope();
+    animate();
 
     try {
       // 1. Load states JSON
@@ -363,13 +449,16 @@
       provLookup = new Uint16Array(binBuf);
       console.log('HOI4 Province Lookup Table Loaded:', provLookup.length, 'entries');
 
-      // 4. Load High-Res Official HOI4 Map
-      mapImg.onload = () => {
-        mapLoaded = true;
-        centerEurope();
+      // 4. Load High-Res Official HOI4 Maps
+      imgPolitical.onload = () => {
+        politicalLoaded = true;
       };
-      // Load full map image
-      mapImg.src = 'data/hoi4_map_full.jpg';
+      imgPolitical.src = 'data/hoi4_map_full.jpg';
+
+      imgTerrain.onload = () => {
+        terrainLoaded = true;
+      };
+      imgTerrain.src = 'data/hoi4_terrain_colormap.jpg';
     } catch (err) {
       console.error('Failed to load HOI4 assets:', err);
     }

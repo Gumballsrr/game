@@ -1,19 +1,14 @@
-/* Hearts of Iron IV Authentic UI Stylesheet */
-@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600;700&family=Crimson+Pro:ital,wght@0,600;0,700;1,400&display=swap');
+/* Hearts of Iron IV Official Theme Stylesheet */
+@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,400;0,500;0,600;0,700;1,500&display=swap');
 
 :root {
-  --hoi-bg: #0b1219;
-  --hoi-panel-bg: rgba(18, 26, 36, 0.94);
-  --hoi-panel-border: #3c4c5e;
-  --hoi-panel-highlight: #6e849c;
-  --hoi-gold: #c8a848;
-  --hoi-gold-light: #f2ce63;
-  --hoi-text: #e6dfcf;
-  --hoi-text-muted: #8c9ba8;
-  --hoi-red: #aa2424;
-  --hoi-green: #2e8b42;
-  --font-ui: 'Barlow Condensed', sans-serif;
-  --font-serif: 'Crimson Pro', Georgia, serif;
+  --hoi4-font: 'Barlow Condensed', sans-serif;
+  --gold-title: #f5d47a;
+  --gold-border: #bfa04a;
+  --gold-dark: #826a28;
+  --text-main: #e8e3d5;
+  --text-muted: #8e9da8;
+  --panel-bg: rgba(14, 20, 28, 0.96);
 }
 
 * {
@@ -21,15 +16,33 @@
   margin: 0;
   padding: 0;
   user-select: none;
+  font-family: var(--hoi4-font);
 }
 
 html, body {
   width: 100%;
   height: 100%;
   overflow: hidden;
-  background-color: var(--hoi-bg);
-  color: var(--hoi-text);
-  font-family: var(--font-ui);
+  background-color: #060c12;
+  color: var(--text-main);
+}
+
+/* ─── 3D VIEWPORT E CÂMERA CLOUSEWITZ ─── */
+#map-3d-wrapper {
+  position: fixed;
+  inset: 0;
+  perspective: 1200px;
+  perspective-origin: 50% 50%;
+  overflow: hidden;
+  background: #070e17;
+}
+
+#map-3d-plane {
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  transform-origin: 50% 50%;
+  will-change: transform;
 }
 
 #hoi4-canvas {
@@ -46,329 +59,455 @@ html, body {
   cursor: grabbing;
 }
 
-/* ─── BARRA SUPERIOR HOI4 ─── */
-.top-bar {
+/* ─── BARRA SUPERIOR OFICIAL HOI4 ─── */
+.hoi4-topbar {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
-  height: 48px;
-  background: linear-gradient(180deg, rgba(24, 34, 46, 0.98) 0%, rgba(14, 20, 28, 0.95) 100%);
-  border-bottom: 2px solid var(--hoi-panel-border);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
+  height: 72px;
+  background: url('gfx/interface/topbar_bg.png') no-repeat left top;
+  background-size: auto 72px;
+  background-color: #121a24;
   display: flex;
-  align-items: center;
-  padding: 0 12px;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 4px 10px 0 8px;
   z-index: 100;
-  gap: 16px;
+  border-bottom: 2px solid #23303e;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.7);
 }
 
-.country-crest {
+.topbar-left {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+/* Bandeira do Jogador */
+.player-flag-box {
+  position: relative;
+  width: 76px;
+  height: 52px;
+  cursor: pointer;
+  margin-top: 2px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
+  border: 2px solid #a88a38;
+}
+
+.player-flag-box img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.flag-gold-frame {
+  position: absolute;
+  inset: 0;
+  box-shadow: inset 0 0 4px rgba(0, 0, 0, 0.6);
+  pointer-events: none;
+}
+
+/* Toolbar de Botões Redondos Oficiais */
+.topbar-toolbar {
+  display: flex;
+  gap: 4px;
+  margin-top: 14px;
+}
+
+.tb-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.1s, filter 0.1s;
+}
+
+.tb-btn img {
+  height: 38px;
+  display: block;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.6));
+}
+
+.tb-btn:hover {
+  transform: translateY(-2px);
+  filter: brightness(1.2);
+}
+
+.tb-btn:active {
+  transform: translateY(1px);
+}
+
+/* Estatísticas Oficiais */
+.topbar-stats {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding-right: 14px;
-  border-right: 1px solid var(--hoi-panel-border);
+  margin-top: 6px;
+  margin-left: 8px;
 }
 
-.crest-flag {
-  font-size: 24px;
-  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
-}
-
-.crest-details {
-  display: flex;
-  flex-direction: column;
-}
-
-.country-name {
-  font-weight: 700;
-  font-size: 15px;
-  color: var(--hoi-gold-light);
-  letter-spacing: 0.5px;
-}
-
-.country-ideology {
-  font-size: 11px;
-  color: var(--hoi-text-muted);
-  text-transform: uppercase;
-}
-
-.stats-group {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex: 1;
-}
-
-.stat-item {
+.stat-pill {
   display: flex;
   align-items: center;
   gap: 4px;
-  background: rgba(8, 12, 18, 0.5);
-  border: 1px solid rgba(60, 76, 94, 0.4);
-  padding: 3px 8px;
-  border-radius: 3px;
+  background: rgba(10, 15, 22, 0.75);
+  border: 1px solid rgba(80, 100, 120, 0.4);
+  padding: 2px 7px;
+  border-radius: 2px;
   font-size: 13px;
   cursor: default;
 }
 
-.stat-icon {
-  font-size: 14px;
+.stat-ico {
+  font-size: 13px;
 }
 
-.stat-val {
-  font-weight: 600;
+.stat-img {
+  height: 14px;
+  display: inline-block;
+}
+
+.stat-text {
+  font-weight: 700;
   color: #fff;
+  letter-spacing: 0.3px;
 }
 
-.stat-rate {
+.stat-sub {
   font-size: 11px;
-  color: var(--hoi-green);
+  color: #3bb854;
   font-weight: 600;
 }
 
-/* Tensão Mundial */
-.world-tension-badge {
+/* Lado Direito: Tensão e Relógio */
+.topbar-right {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.world-tension-container {
   display: flex;
   align-items: center;
   gap: 6px;
-  background: rgba(170, 36, 36, 0.15);
-  border: 1px solid var(--hoi-red);
-  padding: 2px 8px;
-  border-radius: 4px;
-}
-
-.tension-circle {
-  font-weight: 700;
-  color: #ff5555;
-  font-size: 14px;
-}
-
-.tension-label {
-  font-size: 10px;
-  letter-spacing: 1px;
-  color: #ff8888;
-}
-
-/* Painel de Tempo */
-.clock-panel {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  background: rgba(12, 16, 24, 0.85);
-  padding: 4px 10px;
-  border: 1px solid var(--hoi-panel-border);
+  background: rgba(18, 12, 14, 0.85);
+  border: 1px solid #7a1e1e;
+  padding: 4px 8px;
   border-radius: 3px;
+  margin-top: 6px;
+  cursor: pointer;
 }
 
-.date-display {
+.tension-icon {
+  height: 22px;
+}
+
+.tension-number {
+  font-size: 16px;
+  font-weight: 700;
+  color: #ff4a4a;
+}
+
+/* Overlay Oficial da Data (topbar_date_overlay.png) */
+.topbar-clock-overlay {
+  width: 240px;
+  height: 64px;
+  background: url('gfx/interface/topbar_date_overlay.png') no-repeat right top;
+  background-size: 240px auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  padding: 6px 14px 0 0;
+}
+
+.clock-date-line {
   font-size: 14px;
-  font-weight: 600;
-  color: var(--hoi-text);
-  min-width: 120px;
-  text-align: center;
+  font-weight: 700;
+  color: var(--gold-title);
+  letter-spacing: 0.5px;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.9);
 }
 
-.speed-controls {
+.clock-controls-row {
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: 8px;
+  margin-top: 6px;
 }
 
-.btn-ctrl, .btn-speed {
-  background: #1e2a38;
-  border: 1px solid #3c4c5e;
-  color: var(--hoi-text);
-  padding: 2px 7px;
-  font-size: 11px;
-  font-family: var(--font-ui);
-  font-weight: 700;
+.clock-pause-btn {
+  background: #1e2834;
+  border: 1px solid var(--gold-border);
+  color: var(--gold-title);
+  width: 22px;
+  height: 20px;
+  font-size: 10px;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   border-radius: 2px;
-  transition: all 0.15s;
 }
 
-.btn-ctrl:hover, .btn-speed:hover {
-  background: #2e3e52;
-  border-color: var(--hoi-gold);
+.speed-step-indicator {
+  display: flex;
+  gap: 3px;
 }
 
-.btn-speed.active {
-  background: var(--hoi-gold);
-  color: #0b1219;
-  border-color: var(--hoi-gold-light);
+.speed-step-indicator .pip {
+  display: inline-block;
+  width: 10px;
+  height: 12px;
+  background: #253342;
+  border: 1px solid #4a5c70;
+  cursor: pointer;
+  border-radius: 1px;
 }
 
-/* ─── PAINEL DE ESTADO HOI4 ─── */
-.state-window {
+.speed-step-indicator .pip.active {
+  background: var(--gold-title);
+  border-color: #fff;
+  box-shadow: 0 0 6px rgba(245, 212, 122, 0.8);
+}
+
+/* ─── JANELA OFICIAL DE ESTADO (stateview_bg.png) ─── */
+.hoi4-stateview {
   position: fixed;
-  top: 60px;
-  left: 16px;
-  width: 320px;
-  background: var(--hoi-panel-bg);
-  border: 2px solid var(--hoi-panel-border);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.7);
-  border-radius: 4px;
-  z-index: 90;
+  top: 80px;
+  left: 12px;
+  width: 440px;
+  height: 520px;
+  background: url('gfx/interface/stateview_bg.png') no-repeat left top;
+  background-size: 100% 100%;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.85);
+  z-index: 95;
   display: none;
   flex-direction: column;
 }
 
-.state-window.open {
+.hoi4-stateview.open {
   display: flex;
 }
 
-.state-header {
+.stateview-inner {
+  padding: 14px 18px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.sv-header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  padding: 12px 14px 8px;
-  border-bottom: 1px solid var(--hoi-panel-border);
-  background: rgba(28, 38, 52, 0.6);
+  margin-bottom: 8px;
 }
 
-.state-title-block h2 {
-  font-size: 20px;
+.sv-title-area h2 {
+  font-size: 24px;
   font-weight: 700;
-  color: var(--hoi-gold-light);
+  color: var(--gold-title);
+  letter-spacing: 0.6px;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.8);
+}
+
+.sv-category {
+  font-size: 12px;
+  color: var(--text-muted);
+  text-transform: uppercase;
   letter-spacing: 0.5px;
 }
 
-.st-category {
-  font-size: 12px;
-  color: var(--hoi-text-muted);
-  text-transform: uppercase;
-}
-
-.btn-close {
+.sv-close-btn {
   background: none;
   border: none;
-  color: var(--hoi-text-muted);
-  font-size: 16px;
+  color: var(--text-muted);
+  font-size: 18px;
   cursor: pointer;
+  font-weight: 700;
 }
 
-.btn-close:hover {
+.sv-close-btn:hover {
   color: #fff;
 }
 
-.state-owner-banner {
+.sv-owner-section {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 14px;
-  background: rgba(10, 16, 24, 0.6);
-  border-bottom: 1px solid var(--hoi-panel-border);
+  gap: 12px;
+  background: rgba(8, 12, 18, 0.7);
+  border: 1px solid rgba(80, 100, 120, 0.4);
+  padding: 8px 12px;
+  border-radius: 3px;
+  margin-bottom: 10px;
 }
 
-.owner-flag {
-  font-size: 24px;
+.sv-flag-frame {
+  width: 56px;
+  height: 38px;
+  border: 1px solid var(--gold-border);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.6);
 }
 
-.owner-info {
+.sv-flag-frame img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.sv-owner-text {
   display: flex;
   flex-direction: column;
 }
 
-.owner-label {
+.sv-owner-label {
   font-size: 11px;
-  color: var(--hoi-text-muted);
+  color: var(--text-muted);
 }
 
-.owner-info strong {
-  font-size: 15px;
+.sv-owner-text h3 {
+  font-size: 17px;
   color: #fff;
+  font-weight: 700;
 }
 
-.state-stats-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-  padding: 12px 14px;
-  border-bottom: 1px solid var(--hoi-panel-border);
-}
-
-.st-stat {
-  display: flex;
-  flex-direction: column;
-}
-
-.st-stat-lbl {
+.sv-demilitarized {
   font-size: 11px;
-  color: var(--hoi-text-muted);
+  color: #55aa77;
 }
 
-.st-stat-num {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--hoi-text);
+.sv-stats-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  margin-bottom: 12px;
 }
 
-.vp-cities-box {
-  padding: 10px 14px;
-  max-height: 180px;
-  overflow-y: auto;
+.sv-stat-card {
+  background: rgba(14, 20, 28, 0.8);
+  border: 1px solid rgba(60, 76, 94, 0.4);
+  padding: 6px 8px;
+  border-radius: 2px;
+  text-align: center;
 }
 
-.vp-cities-box h3 {
-  font-size: 12px;
+.sv-stat-label {
+  display: block;
+  font-size: 10px;
+  color: var(--text-muted);
   text-transform: uppercase;
-  color: var(--hoi-gold);
+}
+
+.sv-stat-card strong {
+  font-size: 14px;
+  color: var(--gold-title);
+}
+
+.sv-buildings-block, .sv-vp-cities-block {
+  background: rgba(10, 14, 20, 0.65);
+  border: 1px solid rgba(60, 76, 94, 0.35);
+  padding: 8px 10px;
+  border-radius: 2px;
+  margin-bottom: 8px;
+}
+
+.sv-block-title {
+  font-size: 11px;
+  color: var(--gold-border);
+  font-weight: 700;
+  letter-spacing: 0.5px;
   margin-bottom: 6px;
 }
 
-.vp-cities-box ul {
-  list-style: none;
+.sv-slots-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
 }
 
-.vp-cities-box li {
+.sv-slot {
+  font-size: 12px;
+  background: rgba(16, 24, 34, 0.6);
+  padding: 4px 6px;
+  border-radius: 2px;
+}
+
+.sv-vp-list {
+  list-style: none;
+  max-height: 100px;
+  overflow-y: auto;
+}
+
+.sv-vp-list li {
   font-size: 13px;
-  padding: 3px 0;
   display: flex;
   justify-content: space-between;
-  border-bottom: 1px solid rgba(60, 76, 94, 0.3);
+  padding: 3px 0;
+  border-bottom: 1px solid rgba(60, 76, 94, 0.2);
 }
 
-/* ─── HOVER TOOLTIP ─── */
-.hover-tooltip {
+.sv-vp-list li strong {
+  color: var(--gold-title);
+}
+
+/* ─── HOI4 TOOLTIP ─── */
+.hoi4-tooltip {
   position: fixed;
   pointer-events: none;
-  background: rgba(10, 16, 24, 0.95);
-  border: 1px solid var(--hoi-gold);
-  padding: 6px 10px;
-  border-radius: 3px;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.8);
+  background: rgba(12, 18, 26, 0.95);
+  border: 1px solid var(--gold-border);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.8);
+  padding: 6px 12px;
+  border-radius: 2px;
   z-index: 120;
   opacity: 0;
-  transform: translate(12px, 12px);
-  transition: opacity 0.1s;
+  transform: translate(14px, 14px);
+  transition: opacity 0.08s ease;
 }
 
-.hover-tooltip.visible {
+.hoi4-tooltip.visible {
   opacity: 1;
 }
 
-.tt-state {
-  font-size: 14px;
+.tt-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 2px;
+}
+
+.tt-flag {
+  width: 20px;
+  height: 14px;
+  object-fit: cover;
+  border: 1px solid var(--gold-border);
+}
+
+.tt-title {
+  font-size: 15px;
   font-weight: 700;
-  color: var(--hoi-gold-light);
+  color: var(--gold-title);
 }
 
-.tt-sub {
+.tt-body {
   font-size: 12px;
-  color: var(--hoi-text);
+  color: var(--text-main);
 }
 
-/* ─── BARRA INFERIOR / MAPMODES ─── */
-.bottom-bar {
+/* ─── DOCK INFERIOR ─── */
+.hoi4-bottom-dock {
   position: fixed;
   bottom: 0;
   left: 0;
   right: 0;
-  height: 40px;
-  background: linear-gradient(0deg, rgba(14, 20, 28, 0.98) 0%, rgba(20, 28, 38, 0.92) 100%);
-  border-top: 1px solid var(--hoi-panel-border);
+  height: 44px;
+  background: linear-gradient(0deg, rgba(12, 16, 24, 0.98) 0%, rgba(18, 26, 36, 0.9) 100%);
+  border-top: 1px solid #23303e;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -376,41 +515,40 @@ html, body {
   z-index: 100;
 }
 
-.mapmodes-dock {
+.dock-mapmodes {
   display: flex;
   gap: 6px;
 }
 
-.btn-mode {
+.dock-btn {
   background: #182230;
   border: 1px solid #3c4c5e;
-  color: var(--hoi-text);
-  padding: 5px 12px;
-  font-family: var(--font-ui);
+  color: var(--text-main);
+  padding: 5px 14px;
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
-  border-radius: 3px;
+  border-radius: 2px;
   transition: all 0.15s;
 }
 
-.btn-mode:hover {
-  border-color: var(--hoi-gold);
+.dock-btn:hover {
+  border-color: var(--gold-border);
   background: #243244;
 }
 
-.btn-mode.active {
-  background: var(--hoi-gold);
+.dock-btn.active {
+  background: var(--gold-border);
   color: #0b1219;
-  border-color: var(--hoi-gold-light);
+  border-color: var(--gold-title);
 }
 
-.zoom-tools {
+.dock-camera-controls {
   display: flex;
   gap: 4px;
 }
 
-.zoom-tools button {
+.camera-btn {
   background: #182230;
   border: 1px solid #3c4c5e;
   color: #fff;
@@ -419,19 +557,16 @@ html, body {
   font-size: 16px;
   font-weight: 700;
   cursor: pointer;
-  border-radius: 3px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  border-radius: 2px;
 }
 
-.zoom-tools button:hover {
-  border-color: var(--hoi-gold);
+.camera-btn:hover {
+  border-color: var(--gold-border);
   background: #243244;
 }
 
-.info-badge {
+.dock-info-watermark {
   font-size: 12px;
-  color: var(--hoi-text-muted);
+  color: var(--text-muted);
   letter-spacing: 0.5px;
 }
