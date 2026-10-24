@@ -58,9 +58,15 @@ const server = http.createServer((req, res) => {
 
   res.writeHead(200, {
     'Content-Type': contentType,
+    'Content-Length': stat.size,
     'Cache-Control': 'no-cache',
     'Access-Control-Allow-Origin': '*'
   });
+
+  if (req.method === 'HEAD') {
+    res.end();
+    return;
+  }
 
   fs.createReadStream(filePath).pipe(res);
 });

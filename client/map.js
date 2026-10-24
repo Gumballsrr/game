@@ -269,7 +269,7 @@
 
         let vpText = '';
         if (foundState.vps && foundState.vps[pid]) {
-          vpText = ` • ⭐ ${foundState.vps[pid]} VP`;
+          vpText = ` • ★ ${foundState.vps[pid]} VP`;
         }
         ttSub.textContent = `${foundState.country_name} (${foundState.owner}) • Prov: #${pid}${vpText}`;
 
@@ -321,7 +321,7 @@
       for (const [vpid, pts] of Object.entries(st.vps)) {
         totalVps += pts;
         const li = document.createElement('li');
-        li.innerHTML = `<span>Província #${vpid}</span><strong>⭐ ${pts} VP</strong>`;
+        li.innerHTML = `<span>Província #${vpid}</span><strong>★ ${pts} VP</strong>`;
         vpList.appendChild(li);
       }
     }
@@ -330,7 +330,7 @@
       li.textContent = 'Nenhum centro urbano';
       vpList.appendChild(li);
     }
-    stVps.textContent = `⭐ ${totalVps} VP`;
+    stVps.textContent = `★ ${totalVps} VP`;
     stProvCount.textContent = st.provinces.length;
 
     stateWin.classList.add('open');

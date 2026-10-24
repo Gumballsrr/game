@@ -3,23 +3,26 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Hearts of Iron IV - 3D Engine</title>
+  <title>Hearts of Iron IV</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <!-- Viewport 3D Three.js do Mapa HOI4 -->
   <div id="map-3d-wrapper"></div>
 
-  <!-- Barra Superior Autêntica Oficial do HOI4 -->
+  <!-- Barra Superior Oficial do Hearts of Iron IV -->
   <header class="hoi4-topbar">
     <div class="topbar-left">
-      <!-- Bandeira do Jogador -->
-      <div class="player-flag-box" id="player-flag-box" title="Detalhes da Nação">
-        <img src="gfx/flags/GER_fascism.png" alt="Alemanha" id="player-flag-img">
-        <div class="flag-gold-frame"></div>
+      <!-- Retrato do Líder Oficial + Moldura Dourada -->
+      <div class="leader-portrait-box" id="leader-box" title="Adolf Hitler - Líder da Nação (Führer)">
+        <img src="gfx/leaders/GER_hitler.png" alt="Líder" class="leader-photo" id="player-leader-photo">
+        <img src="gfx/interface/pol_leader_frame.png" alt="Moldura" class="leader-frame">
+        <div class="flag-mini-crest">
+          <img src="gfx/flags/GER_fascism.png" alt="Bandeira" id="player-flag-mini">
+        </div>
       </div>
 
-      <!-- Botões de Ação do Governo (Toolbar Oficial) -->
+      <!-- Toolbar de Botões Circulares Oficiais -->
       <div class="topbar-toolbar">
         <button class="tb-btn" title="Decisões e Projetos Nacionais (Shift+Q)">
           <img src="gfx/interface/topbar_decisionview_button.png" alt="Decisões">
@@ -47,44 +50,44 @@
         </button>
       </div>
 
-      <!-- Estatísticas Oficiais do HOI4 -->
+      <!-- Caixas de Recursos Oficiais (generic_box_smallest.png) -->
       <div class="topbar-stats">
-        <div class="stat-pill" title="Poder Político (+2.00/dia)">
-          <span class="stat-ico">⚖️</span>
-          <span class="stat-text" id="val-pp">150</span>
-          <span class="stat-sub">+2.00</span>
+        <div class="stat-box" title="Poder Político (+2.00/dia)">
+          <img src="gfx/interface/pol_power_icon.png" class="stat-ico" alt="PP">
+          <span class="stat-val" id="val-pp">150</span>
         </div>
-        <div class="stat-pill" title="Estabilidade Nacional">
-          <span class="stat-ico">🕊️</span>
-          <span class="stat-text" id="val-stab">75%</span>
+        <div class="stat-box" title="Estabilidade Nacional">
+          <img src="gfx/interface/stability_icon.png" class="stat-ico" alt="Stab">
+          <span class="stat-val" id="val-stab">75%</span>
         </div>
-        <div class="stat-pill" title="Apoio de Guerra">
-          <span class="stat-ico">⚔️</span>
-          <span class="stat-text" id="val-war">80%</span>
+        <div class="stat-box" title="Apoio de Guerra">
+          <img src="gfx/interface/war_support_icon.png" class="stat-ico" alt="War">
+          <span class="stat-val" id="val-war">80%</span>
         </div>
-        <div class="stat-pill" title="População Recrutável (Manpower)">
-          <span class="stat-ico">👥</span>
-          <span class="stat-text" id="val-manpower">1.25M</span>
+        <div class="stat-box" title="População Recrutável (Manpower)">
+          <img src="gfx/interface/manpower_icon.png" class="stat-ico" alt="Manpower">
+          <span class="stat-val" id="val-manpower">1.25M</span>
         </div>
-        <div class="stat-pill" title="Fábricas Civis, Militares e Estaleiros">
-          <span class="stat-ico">🏭</span>
-          <span class="stat-text" id="val-factories">124</span>
+        <div class="stat-box" title="Capacidade Industrial (Fábricas Civis, Militares e Estaleiros)">
+          <img src="gfx/interface/industrial_capacity_icon.png" class="stat-ico-wide" alt="Fábricas">
+          <span class="stat-val" id="val-factories">124</span>
         </div>
-        <div class="stat-pill" title="Combustível">
-          <img src="gfx/interface/fuel_icon.png" class="stat-img" alt="Combustível">
-          <span class="stat-text" id="val-fuel">1.5M</span>
+        <div class="stat-box" title="Combustível">
+          <img src="gfx/interface/fuel_icon.png" class="stat-ico" alt="Fuel">
+          <span class="stat-val" id="val-fuel">1.5M</span>
         </div>
-        <div class="stat-pill" title="Comboios de Transporte">
-          <span class="stat-ico">🚢</span>
-          <span class="stat-text" id="val-convoys">450</span>
+        <div class="stat-box" title="Comboios de Transporte">
+          <img src="gfx/interface/topbar_convoys.png" class="stat-ico" alt="Convoys">
+          <span class="stat-val" id="val-convoys">450</span>
         </div>
-        <div class="stat-pill" title="Poder de Comando">
-          <span class="stat-ico">🎖️</span>
-          <span class="stat-text" id="val-cp">100/100</span>
+        <div class="stat-box" title="Poder de Comando">
+          <img src="gfx/interface/command_power.png" class="stat-ico" alt="CP">
+          <span class="stat-val" id="val-cp">100</span>
         </div>
-        <div class="stat-pill" title="Experiência: Exército / Armada / Aeronáutica">
-          <span class="stat-ico">⭐</span>
-          <span class="stat-text" id="val-xp">25 / 10 / 15</span>
+        <div class="stat-box xp-box" title="Experiência: Exército / Armada / Aeronáutica">
+          <span class="xp-item"><img src="gfx/interface/army_experience.png" alt="Army"> <b id="val-army-xp">25</b></span>
+          <span class="xp-item"><img src="gfx/interface/navy_experience.png" alt="Navy"> <b id="val-navy-xp">10</b></span>
+          <span class="xp-item"><img src="gfx/interface/air_experience.png" alt="Air"> <b id="val-air-xp">15</b></span>
         </div>
       </div>
     </div>
@@ -137,18 +140,22 @@
 
       <div class="sv-stats-row">
         <div class="sv-stat-card">
+          <img src="gfx/interface/population_icon.png" class="stat-ico-mini" alt="Pop">
           <span class="sv-stat-label">População</span>
           <strong id="st-manpower">7.26M</strong>
         </div>
         <div class="sv-stat-card">
-          <span class="sv-stat-label">Pontos de Vitória</span>
-          <strong id="st-vps">⭐ 56 VP</strong>
+          <img src="gfx/interface/victorypoint_stateview_bg.png" class="stat-ico-mini" alt="VP">
+          <span class="sv-stat-label">Vitória</span>
+          <strong id="st-vps">56 VP</strong>
         </div>
         <div class="sv-stat-card">
+          <img src="gfx/interface/buildings/infrastructure.png" class="stat-ico-mini" alt="Infra">
           <span class="sv-stat-label">Infraestrutura</span>
-          <strong id="st-infra">Nível 5/5</strong>
+          <strong id="st-infra">5/5</strong>
         </div>
         <div class="sv-stat-card">
+          <img src="gfx/interface/buildings/dockyard.png" class="stat-ico-mini" alt="Porto">
           <span class="sv-stat-label">Províncias</span>
           <strong id="st-prov-count">16</strong>
         </div>
@@ -157,10 +164,22 @@
       <div class="sv-buildings-block">
         <div class="sv-block-title">ESTRUTURAS & CAPACIDADE INDUSTRIAL</div>
         <div class="sv-slots-grid">
-          <div class="sv-slot" title="Fábricas Civis">🏭 <span id="st-civ-factories">4 Civis</span></div>
-          <div class="sv-slot" title="Fábricas Militares">⚔️ <span id="st-mil-factories">5 Militares</span></div>
-          <div class="sv-slot" title="Base Aérea">✈️ <span id="st-air-base">Base Aérea (6)</span></div>
-          <div class="sv-slot" title="Artilharia Antiaérea">🛡️ <span id="st-aa">Defesa AA (2)</span></div>
+          <div class="sv-slot" title="Fábricas Civis">
+            <img src="gfx/interface/buildings/industrial_complex.png" class="bld-ico" alt="Civil">
+            <span id="st-civ-factories">4 Civis</span>
+          </div>
+          <div class="sv-slot" title="Fábricas Militares">
+            <img src="gfx/interface/buildings/arms_factory.png" class="bld-ico" alt="Militar">
+            <span id="st-mil-factories">5 Militares</span>
+          </div>
+          <div class="sv-slot" title="Base Aérea">
+            <img src="gfx/interface/buildings/air_base.png" class="bld-ico" alt="Aéreo">
+            <span id="st-air-base">Base Aérea (6)</span>
+          </div>
+          <div class="sv-slot" title="Artilharia Antiaérea">
+            <img src="gfx/interface/buildings/anti_air_building.png" class="bld-ico" alt="AA">
+            <span id="st-aa">Defesa AA (2)</span>
+          </div>
         </div>
       </div>
 
@@ -177,20 +196,20 @@
       <img src="gfx/flags/GER_fascism.png" id="tt-flag-img" class="tt-flag" alt="">
       <span class="tt-title" id="tt-state">Brandenburg</span>
     </div>
-    <div class="tt-body" id="tt-sub">German Reich • Província #6521 • ⭐ 50 VP (Berlin)</div>
+    <div class="tt-body" id="tt-sub">German Reich • Província #6521</div>
   </div>
 
   <!-- Dock Inferior de Modos de Mapa e Controles de Câmera 3D -->
   <footer class="hoi4-bottom-dock">
     <div class="dock-mapmodes">
       <button class="dock-btn active" id="mode-political" title="Modo de Mapa Político Oficial (F1)">
-        <span class="dock-btn-icon">🗺️</span> POLÍTICO
+        POLÍTICO
       </button>
       <button class="dock-btn" id="mode-terrain" title="Modo de Relevo e Terreno de Satélite Oficial (F2)">
-        <span class="dock-btn-icon">🏔️</span> TERRENO 3D
+        TERRENO
       </button>
-      <button class="dock-btn" id="btn-toggle-3d" title="Alternar Inclinação de Perspectiva 3D (T)">
-        <span class="dock-btn-icon">📐</span> CÂMERA 3D: <span id="lbl-3d-status">ON</span>
+      <button class="dock-btn" id="btn-toggle-3d" title="Alternar Câmera 3D Inclinada (T)">
+        CÂMERA 3D: <span id="lbl-3d-status">ON</span>
       </button>
     </div>
 
@@ -201,11 +220,10 @@
     </div>
 
     <div class="dock-info-watermark">
-      Hearts of Iron IV • Three.js 3D WebGL • 5.632 × 2.048 • 13.414 Províncias • Botão Direito: Girar 3D
+      Hearts of Iron IV • Three.js WebGL 3D • Botão Direito: Girar Câmera • Scroll: Zoom 3D
     </div>
   </footer>
 
-  <!-- Three.js 3D Engine Library -->
   <script src="js/three.min.js"></script>
   <script src="map.js"></script>
 </body>

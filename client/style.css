@@ -1,14 +1,21 @@
-/* Hearts of Iron IV Official Theme Stylesheet */
-@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,400;0,500;0,600;0,700;1,500&display=swap');
+/* ==========================================================================
+   Hearts of Iron IV - Official 1:1 Interface Styling
+   Clausewitz Engine Aesthetic - Paradox Interactive Authentic Design
+   ========================================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800;900&family=Barlow+Condensed:ital,wght@0,400;0,500;0,600;0,700;1,500&display=swap');
 
 :root {
-  --hoi4-font: 'Barlow Condensed', sans-serif;
+  --hoi4-font-ui: 'Barlow Condensed', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --hoi4-font-title: 'Cinzel', 'Trajan Pro', Georgia, serif;
   --gold-title: #f5d47a;
-  --gold-border: #bfa04a;
-  --gold-dark: #826a28;
-  --text-main: #e8e3d5;
-  --text-muted: #8e9da8;
-  --panel-bg: rgba(14, 20, 28, 0.96);
+  --gold-glow: #e8c050;
+  --gold-border: #9f823a;
+  --gold-dark: #5c4a1e;
+  --text-main: #ece6d8;
+  --text-dim: #97a3b0;
+  --text-green: #4ade80;
+  --text-red: #ef4444;
 }
 
 * {
@@ -16,242 +23,319 @@
   margin: 0;
   padding: 0;
   user-select: none;
-  font-family: var(--hoi4-font);
+  -webkit-user-drag: none;
+  font-family: var(--hoi4-font-ui);
 }
 
 html, body {
-  width: 100%;
-  height: 100%;
+  width: 100vw;
+  height: 100vh;
   overflow: hidden;
-  background-color: #060c12;
+  background-color: #050b11;
   color: var(--text-main);
+  position: relative;
 }
 
-/* ─── 3D VIEWPORT E CÂMERA CLOUSEWITZ ─── */
+/* ─── 3D VIEWPORT CONTAINER ─── */
 #map-3d-wrapper {
-  position: fixed;
-  inset: 0;
-  perspective: 1200px;
-  perspective-origin: 50% 50%;
-  overflow: hidden;
-  background: #070e17;
-}
-
-#map-3d-plane {
-  width: 100%;
-  height: 100%;
-  transform-style: preserve-3d;
-  transform-origin: 50% 50%;
-  will-change: transform;
-}
-
-#hoi4-canvas {
   position: absolute;
   top: 0;
   left: 0;
-  width: 100%;
-  height: 100%;
+  width: 100vw;
+  height: 100vh;
+  z-index: 1;
   cursor: grab;
-  touch-action: none;
 }
 
-#hoi4-canvas:active {
+#map-3d-wrapper:active {
   cursor: grabbing;
 }
 
-/* ─── BARRA SUPERIOR OFICIAL HOI4 ─── */
+#map-3d-wrapper canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* ─── BARRA SUPERIOR (TOPBAR) OFICIAL DO HOI4 ─── */
 .hoi4-topbar {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
-  height: 72px;
-  background: url('gfx/interface/topbar_bg.png') no-repeat left top;
-  background-size: auto 72px;
-  background-color: #121a24;
+  height: 74px;
+  background: url('gfx/interface/topbar_bg.png') repeat-x top left;
+  background-size: auto 74px;
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  padding: 4px 10px 0 8px;
+  padding: 2px 8px 0 6px;
   z-index: 100;
-  border-bottom: 2px solid #23303e;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.7);
+  pointer-events: auto;
+  filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.85));
 }
 
 .topbar-left {
   display: flex;
   align-items: flex-start;
-  gap: 10px;
+  gap: 8px;
 }
 
-/* Bandeira do Jogador */
-.player-flag-box {
+/* Retrato do Líder com Moldura Dourada Oficial */
+.leader-portrait-box {
   position: relative;
-  width: 76px;
-  height: 52px;
+  width: 66px;
+  height: 88px;
+  margin-top: 1px;
   cursor: pointer;
-  margin-top: 2px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
-  border: 2px solid #a88a38;
+  flex-shrink: 0;
+  transition: transform 0.12s ease;
 }
 
-.player-flag-box img {
+.leader-portrait-box:hover {
+  transform: scale(1.03);
+}
+
+.leader-photo {
+  position: absolute;
+  top: 4px;
+  left: 5px;
+  width: 56px;
+  height: 76px;
+  object-fit: cover;
+  border-radius: 2px;
+  box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.8);
+}
+
+.leader-frame {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  filter: drop-shadow(0 3px 6px rgba(0,0,0,0.85));
+}
+
+.flag-mini-crest {
+  position: absolute;
+  bottom: 0px;
+  left: 2px;
+  width: 24px;
+  height: 16px;
+  border: 1px solid #c7a750;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.9);
+  overflow: hidden;
+  border-radius: 1px;
+}
+
+.flag-mini-crest img {
   width: 100%;
   height: 100%;
   object-fit: cover;
   display: block;
 }
 
-.flag-gold-frame {
-  position: absolute;
-  inset: 0;
-  box-shadow: inset 0 0 4px rgba(0, 0, 0, 0.6);
-  pointer-events: none;
-}
-
-/* Toolbar de Botões Redondos Oficiais */
+/* Toolbar de Botões Circulares Oficiais */
 .topbar-toolbar {
   display: flex;
-  gap: 4px;
-  margin-top: 14px;
+  gap: 3px;
+  margin-top: 12px;
 }
 
 .tb-btn {
   background: none;
   border: none;
-  cursor: pointer;
   padding: 0;
+  cursor: pointer;
+  outline: none;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: transform 0.1s, filter 0.1s;
+  transition: transform 0.1s ease, filter 0.15s ease;
 }
 
 .tb-btn img {
   height: 38px;
+  width: auto;
   display: block;
-  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.6));
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.7));
 }
 
 .tb-btn:hover {
-  transform: translateY(-2px);
-  filter: brightness(1.2);
+  transform: translateY(-2px) scale(1.06);
+  filter: brightness(1.22) drop-shadow(0 4px 8px rgba(245, 212, 122, 0.35));
 }
 
 .tb-btn:active {
   transform: translateY(1px);
 }
 
-/* Estatísticas Oficiais */
+/* Caixas de Estatísticas / Recursos Oficiais */
 .topbar-stats {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-top: 6px;
-  margin-left: 8px;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 10px;
+  margin-left: 6px;
 }
 
-.stat-pill {
+.stat-box {
+  position: relative;
+  min-width: 68px;
+  height: 27px;
+  background: url('gfx/interface/generic_box_smallest.png') no-repeat center center;
+  background-size: 100% 100%;
   display: flex;
   align-items: center;
-  gap: 4px;
-  background: rgba(10, 15, 22, 0.75);
-  border: 1px solid rgba(80, 100, 120, 0.4);
-  padding: 2px 7px;
-  border-radius: 2px;
-  font-size: 13px;
+  justify-content: space-between;
+  padding: 0 5px 0 4px;
   cursor: default;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.6);
+  transition: filter 0.1s ease;
+}
+
+.stat-box:hover {
+  filter: brightness(1.15);
 }
 
 .stat-ico {
-  font-size: 13px;
+  height: 18px;
+  width: auto;
+  display: block;
+  flex-shrink: 0;
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.8));
 }
 
-.stat-img {
-  height: 14px;
-  display: inline-block;
+.stat-ico-wide {
+  height: 18px;
+  width: auto;
+  display: block;
+  flex-shrink: 0;
 }
 
-.stat-text {
+.stat-val {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: 0.3px;
+  text-shadow: 0 1px 2px #000, 0 0 4px rgba(0,0,0,0.9);
+}
+
+/* Caixa de Experiência Tripla (Army / Navy / Air) */
+.xp-box {
+  min-width: 130px;
+  display: flex;
+  justify-content: space-around;
+  gap: 5px;
+  padding: 0 6px;
+}
+
+.xp-item {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 12px;
   font-weight: 700;
   color: #fff;
-  letter-spacing: 0.3px;
 }
 
-.stat-sub {
-  font-size: 11px;
-  color: #3bb854;
-  font-weight: 600;
+.xp-item img {
+  height: 14px;
+  width: auto;
+  display: block;
 }
 
-/* Lado Direito: Tensão e Relógio */
+/* Lado Direito: Tensão Mundial e Relógio */
 .topbar-right {
   display: flex;
   align-items: flex-start;
-  gap: 16px;
+  gap: 12px;
+  margin-top: 3px;
 }
 
 .world-tension-container {
   display: flex;
   align-items: center;
   gap: 6px;
-  background: rgba(18, 12, 14, 0.85);
-  border: 1px solid #7a1e1e;
-  padding: 4px 8px;
+  background: radial-gradient(circle at center, #240b0f 0%, #110507 100%);
+  border: 1px solid #781c24;
+  box-shadow: inset 0 0 6px rgba(0,0,0,0.9), 0 2px 6px rgba(0,0,0,0.8);
+  padding: 3px 8px 3px 6px;
   border-radius: 3px;
-  margin-top: 6px;
+  margin-top: 8px;
   cursor: pointer;
+  transition: transform 0.1s, border-color 0.15s;
+}
+
+.world-tension-container:hover {
+  transform: scale(1.04);
+  border-color: #ba2836;
 }
 
 .tension-icon {
-  height: 22px;
+  height: 28px;
+  width: auto;
+  display: block;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.9));
 }
 
 .tension-number {
-  font-size: 16px;
-  font-weight: 700;
-  color: #ff4a4a;
+  font-family: var(--hoi4-font-ui);
+  font-size: 17px;
+  font-weight: 800;
+  color: #ff3a48;
+  letter-spacing: 0.5px;
+  text-shadow: 0 0 8px rgba(255, 58, 72, 0.6), 0 1px 3px #000;
 }
 
-/* Overlay Oficial da Data (topbar_date_overlay.png) */
+/* Relógio e Velocidade Oficial (topbar_date_overlay.png) */
 .topbar-clock-overlay {
-  width: 240px;
-  height: 64px;
+  width: 254px;
+  height: 68px;
   background: url('gfx/interface/topbar_date_overlay.png') no-repeat right top;
-  background-size: 240px auto;
+  background-size: 254px auto;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  padding: 6px 14px 0 0;
+  padding: 8px 18px 0 0;
 }
 
 .clock-date-line {
-  font-size: 14px;
+  font-family: var(--hoi4-font-title);
+  font-size: 13.5px;
   font-weight: 700;
   color: var(--gold-title);
-  letter-spacing: 0.5px;
-  text-shadow: 0 1px 3px rgba(0,0,0,0.9);
+  letter-spacing: 0.6px;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.95), 0 0 6px rgba(245, 212, 122, 0.4);
 }
 
 .clock-controls-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 7px;
   margin-top: 6px;
 }
 
 .clock-pause-btn {
-  background: #1e2834;
+  background: linear-gradient(to bottom, #2b3949 0%, #17212c 100%);
   border: 1px solid var(--gold-border);
   color: var(--gold-title);
-  width: 22px;
-  height: 20px;
-  font-size: 10px;
+  width: 24px;
+  height: 21px;
+  font-size: 11px;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: 2px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.7);
+  transition: filter 0.1s;
+}
+
+.clock-pause-btn:hover {
+  filter: brightness(1.2);
 }
 
 .speed-step-indicator {
@@ -262,32 +346,41 @@ html, body {
 .speed-step-indicator .pip {
   display: inline-block;
   width: 10px;
-  height: 12px;
-  background: #253342;
-  border: 1px solid #4a5c70;
+  height: 13px;
+  background: #1b2734;
+  border: 1px solid #3d4f64;
   cursor: pointer;
   border-radius: 1px;
+  transition: background 0.1s, box-shadow 0.15s;
 }
 
 .speed-step-indicator .pip.active {
-  background: var(--gold-title);
-  border-color: #fff;
-  box-shadow: 0 0 6px rgba(245, 212, 122, 0.8);
+  background: linear-gradient(to bottom, #ffe894 0%, #d89f2d 100%);
+  border-color: #ffffff;
+  box-shadow: 0 0 8px rgba(245, 212, 122, 0.9);
 }
 
 /* ─── JANELA OFICIAL DE ESTADO (stateview_bg.png) ─── */
 .hoi4-stateview {
   position: fixed;
-  top: 80px;
-  left: 12px;
+  top: 86px;
+  left: 14px;
   width: 440px;
-  height: 520px;
+  height: 560px;
   background: url('gfx/interface/stateview_bg.png') no-repeat left top;
   background-size: 100% 100%;
-  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.85);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.95), 0 0 20px rgba(0, 0, 0, 0.8);
   z-index: 95;
   display: none;
   flex-direction: column;
+  border-radius: 2px;
+  pointer-events: auto;
+  animation: svFadeIn 0.15s ease-out;
+}
+
+@keyframes svFadeIn {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .hoi4-stateview.open {
@@ -295,7 +388,7 @@ html, body {
 }
 
 .stateview-inner {
-  padding: 14px 18px;
+  padding: 16px 20px;
   height: 100%;
   display: flex;
   flex-direction: column;
@@ -305,59 +398,70 @@ html, body {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: 8px;
+  border-bottom: 2px solid var(--gold-dark);
+  padding-bottom: 6px;
+  margin-bottom: 12px;
 }
 
 .sv-title-area h2 {
-  font-size: 24px;
-  font-weight: 700;
+  font-family: var(--hoi4-font-title);
+  font-size: 20px;
   color: var(--gold-title);
-  letter-spacing: 0.6px;
-  text-shadow: 0 2px 4px rgba(0,0,0,0.8);
+  text-shadow: 0 2px 4px #000;
+  letter-spacing: 0.8px;
 }
 
 .sv-category {
   font-size: 12px;
-  color: var(--text-muted);
+  color: var(--text-dim);
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 1px;
 }
 
 .sv-close-btn {
-  background: none;
-  border: none;
-  color: var(--text-muted);
-  font-size: 18px;
+  background: #1e2834;
+  border: 1px solid var(--gold-border);
+  color: var(--gold-title);
+  width: 24px;
+  height: 24px;
+  font-size: 13px;
   cursor: pointer;
-  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 2px;
+  transition: background 0.1s;
 }
 
 .sv-close-btn:hover {
+  background: #781c24;
   color: #fff;
+  border-color: #ff3a48;
 }
 
 .sv-owner-section {
   display: flex;
   align-items: center;
   gap: 12px;
-  background: rgba(8, 12, 18, 0.7);
-  border: 1px solid rgba(80, 100, 120, 0.4);
+  background: rgba(14, 21, 30, 0.7);
   padding: 8px 12px;
-  border-radius: 3px;
-  margin-bottom: 10px;
+  border: 1px solid rgba(120, 140, 160, 0.3);
+  margin-bottom: 12px;
 }
 
 .sv-flag-frame {
-  width: 56px;
+  width: 58px;
   height: 38px;
-  border: 1px solid var(--gold-border);
-  box-shadow: 0 2px 6px rgba(0,0,0,0.6);
+  border: 2px solid var(--gold-border);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.8);
+  flex-shrink: 0;
 }
 
 .sv-flag-frame img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  display: block;
 }
 
 .sv-owner-text {
@@ -367,206 +471,254 @@ html, body {
 
 .sv-owner-label {
   font-size: 11px;
-  color: var(--text-muted);
+  color: var(--text-dim);
+  text-transform: uppercase;
 }
 
 .sv-owner-text h3 {
   font-size: 17px;
-  color: #fff;
+  color: #ffffff;
   font-weight: 700;
+  letter-spacing: 0.4px;
 }
 
 .sv-demilitarized {
-  font-size: 11px;
-  color: #55aa77;
+  font-size: 11.5px;
+  color: var(--text-green);
+  font-weight: 600;
 }
 
 .sv-stats-row {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 6px;
-  margin-bottom: 12px;
+  margin-bottom: 14px;
 }
 
 .sv-stat-card {
-  background: rgba(14, 20, 28, 0.8);
-  border: 1px solid rgba(60, 76, 94, 0.4);
-  padding: 6px 8px;
-  border-radius: 2px;
+  background: rgba(18, 26, 36, 0.85);
+  border: 1px solid rgba(90, 110, 130, 0.35);
+  padding: 6px 4px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   text-align: center;
 }
 
-.sv-stat-label {
+.stat-ico-mini {
+  height: 18px;
+  width: auto;
+  margin-bottom: 3px;
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.8));
+}
+
+.bld-ico {
+  height: 24px;
+  width: auto;
   display: block;
-  font-size: 10px;
-  color: var(--text-muted);
+  flex-shrink: 0;
+  filter: drop-shadow(0 1px 3px rgba(0,0,0,0.8));
+}
+
+.sv-stat-label {
+  font-size: 10.5px;
+  color: var(--text-dim);
   text-transform: uppercase;
+  margin-bottom: 2px;
 }
 
 .sv-stat-card strong {
   font-size: 14px;
   color: var(--gold-title);
-}
-
-.sv-buildings-block, .sv-vp-cities-block {
-  background: rgba(10, 14, 20, 0.65);
-  border: 1px solid rgba(60, 76, 94, 0.35);
-  padding: 8px 10px;
-  border-radius: 2px;
-  margin-bottom: 8px;
+  font-weight: 700;
 }
 
 .sv-block-title {
-  font-size: 11px;
-  color: var(--gold-border);
-  font-weight: 700;
-  letter-spacing: 0.5px;
-  margin-bottom: 6px;
+  font-family: var(--hoi4-font-title);
+  font-size: 11.5px;
+  color: var(--gold-title);
+  letter-spacing: 0.8px;
+  border-bottom: 1px solid rgba(159, 130, 58, 0.4);
+  padding-bottom: 3px;
+  margin-bottom: 8px;
+}
+
+.sv-buildings-block {
+  margin-bottom: 12px;
 }
 
 .sv-slots-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 4px;
+  gap: 6px;
 }
 
 .sv-slot {
-  font-size: 12px;
-  background: rgba(16, 24, 34, 0.6);
-  padding: 4px 6px;
-  border-radius: 2px;
+  background: rgba(15, 22, 32, 0.85);
+  border: 1px solid rgba(80, 100, 120, 0.35);
+  padding: 5px 8px;
+  font-size: 13px;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sv-vp-cities-block {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .sv-vp-list {
   list-style: none;
-  max-height: 100px;
   overflow-y: auto;
+  max-height: 120px;
+  padding-right: 4px;
 }
 
 .sv-vp-list li {
-  font-size: 13px;
   display: flex;
   justify-content: space-between;
-  padding: 3px 0;
-  border-bottom: 1px solid rgba(60, 76, 94, 0.2);
+  align-items: center;
+  padding: 4px 6px;
+  background: rgba(12, 18, 26, 0.65);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  font-size: 12.5px;
 }
 
 .sv-vp-list li strong {
   color: var(--gold-title);
 }
 
-/* ─── HOI4 TOOLTIP ─── */
+/* ─── TOOLTIP AUTÊNTICO DO HOI4 ─── */
 .hoi4-tooltip {
   position: fixed;
+  z-index: 1000;
   pointer-events: none;
-  background: rgba(12, 18, 26, 0.95);
+  background: radial-gradient(circle at top left, #1c2634 0%, #0c141d 100%);
   border: 1px solid var(--gold-border);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.8);
-  padding: 6px 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.9), inset 0 0 6px rgba(0, 0, 0, 0.8);
+  padding: 8px 12px;
   border-radius: 2px;
-  z-index: 120;
-  opacity: 0;
-  transform: translate(14px, 14px);
-  transition: opacity 0.08s ease;
+  display: none;
+  flex-direction: column;
+  gap: 3px;
+  max-width: 320px;
 }
 
 .hoi4-tooltip.visible {
-  opacity: 1;
+  display: flex;
 }
 
 .tt-header {
   display: flex;
   align-items: center;
-  gap: 6px;
-  margin-bottom: 2px;
+  gap: 8px;
 }
 
 .tt-flag {
-  width: 20px;
-  height: 14px;
-  object-fit: cover;
+  width: 24px;
+  height: 16px;
   border: 1px solid var(--gold-border);
+  object-fit: cover;
+  flex-shrink: 0;
 }
 
 .tt-title {
+  font-family: var(--hoi4-font-title);
   font-size: 15px;
-  font-weight: 700;
   color: var(--gold-title);
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-shadow: 0 1px 3px #000;
 }
 
 .tt-body {
   font-size: 12px;
-  color: var(--text-main);
+  color: #cfd8dc;
+  letter-spacing: 0.3px;
 }
 
-/* ─── DOCK INFERIOR ─── */
+/* ─── DOCK INFERIOR (MAPMODES & CONTROLES) ─── */
 .hoi4-bottom-dock {
   position: fixed;
   bottom: 0;
   left: 0;
   right: 0;
-  height: 44px;
-  background: linear-gradient(0deg, rgba(12, 16, 24, 0.98) 0%, rgba(18, 26, 36, 0.9) 100%);
-  border-top: 1px solid #23303e;
+  height: 40px;
+  background: linear-gradient(to top, #091018 0%, rgba(12, 20, 30, 0.9) 100%);
+  border-top: 1px solid #233446;
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  padding: 0 16px;
-  z-index: 100;
+  justify-content: space-between;
+  padding: 0 14px;
+  z-index: 90;
+  pointer-events: auto;
+  box-shadow: 0 -4px 16px rgba(0,0,0,0.8);
 }
 
 .dock-mapmodes {
   display: flex;
-  gap: 6px;
+  gap: 4px;
 }
 
 .dock-btn {
-  background: #182230;
-  border: 1px solid #3c4c5e;
-  color: var(--text-main);
-  padding: 5px 14px;
-  font-size: 13px;
+  background: linear-gradient(to bottom, #1d2b3a 0%, #101923 100%);
+  border: 1px solid #41556c;
+  color: #b0c0d0;
+  font-family: var(--hoi4-font-title);
+  font-size: 11px;
   font-weight: 700;
-  cursor: pointer;
+  letter-spacing: 0.6px;
+  padding: 5px 12px;
   border-radius: 2px;
-  transition: all 0.15s;
+  cursor: pointer;
+  transition: all 0.12s ease;
 }
 
 .dock-btn:hover {
+  background: linear-gradient(to bottom, #2b3d52 0%, #162432 100%);
+  color: #fff;
   border-color: var(--gold-border);
-  background: #243244;
 }
 
 .dock-btn.active {
-  background: var(--gold-border);
-  color: #0b1219;
+  background: linear-gradient(to bottom, #43361a 0%, #221a0b 100%);
   border-color: var(--gold-title);
+  color: var(--gold-title);
+  box-shadow: 0 0 10px rgba(245, 212, 122, 0.4);
 }
 
 .dock-camera-controls {
   display: flex;
-  gap: 4px;
+  gap: 5px;
 }
 
 .camera-btn {
-  background: #182230;
-  border: 1px solid #3c4c5e;
-  color: #fff;
+  background: #14202d;
+  border: 1px solid #3c4f64;
+  color: var(--gold-title);
+  font-size: 15px;
+  font-weight: bold;
   width: 28px;
-  height: 28px;
-  font-size: 16px;
-  font-weight: 700;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
   border-radius: 2px;
+  transition: filter 0.1s;
 }
 
 .camera-btn:hover {
+  filter: brightness(1.25);
   border-color: var(--gold-border);
-  background: #243244;
 }
 
 .dock-info-watermark {
-  font-size: 12px;
-  color: var(--text-muted);
+  font-size: 11.5px;
+  color: #66798e;
   letter-spacing: 0.5px;
 }
