@@ -1,58 +1,150 @@
 <!doctype html>
 <html lang="pt-BR">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Frente Oriental 1941</title>
-<link rel="stylesheet" href="style.css">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Hearts of Iron IV - Web Engine</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<canvas id="map" aria-label="Mapa da Frente Oriental em junho de 1941"></canvas>
+  <!-- Canvas do Mapa HOI4 Oficial -->
+  <canvas id="hoi4-canvas"></canvas>
 
-<header class="hud title">
-  <h1>Frente Oriental</h1>
-  <p>22 de junho de 1941 · início da Operação Barbarossa</p>
-</header>
+  <!-- Barra Superior Autêntica do HOI4 -->
+  <header class="top-bar">
+    <div class="country-crest">
+      <div class="crest-flag" id="player-flag">🇩🇪</div>
+      <div class="crest-details">
+        <span class="country-name" id="player-country">German Reich</span>
+        <span class="country-ideology" id="player-ideology">Fascism</span>
+      </div>
+    </div>
 
-<aside class="hud info" id="info" aria-live="polite">
-  <p class="hint">Passe o mouse sobre uma região. Clique para fixar o estado.</p>
-</aside>
+    <div class="stats-group">
+      <div class="stat-item" title="Poder Político">
+        <span class="stat-icon">⚖️</span>
+        <span class="stat-val" id="val-pp">150</span>
+        <span class="stat-rate">+2.00</span>
+      </div>
+      <div class="stat-item" title="Estabilidade Nacional">
+        <span class="stat-icon">🕊️</span>
+        <span class="stat-val" id="val-stab">75%</span>
+      </div>
+      <div class="stat-item" title="Apoio de Guerra">
+        <span class="stat-icon">⚔️</span>
+        <span class="stat-val" id="val-war">80%</span>
+      </div>
+      <div class="stat-item" title="População Recrutável">
+        <span class="stat-icon">👥</span>
+        <span class="stat-val" id="val-manpower">1.25M</span>
+      </div>
+      <div class="stat-item" title="Fábricas Civis e Militares">
+        <span class="stat-icon">🏭</span>
+        <span class="stat-val" id="val-factories">120</span>
+      </div>
+      <div class="stat-item" title="Combustível">
+        <span class="stat-icon">🛢️</span>
+        <span class="stat-val" id="val-fuel">1.5M</span>
+      </div>
+      <div class="stat-item" title="Comboios de Transporte">
+        <span class="stat-icon">🚢</span>
+        <span class="stat-val" id="val-convoys">450</span>
+      </div>
+      <div class="stat-item" title="Poder de Comando">
+        <span class="stat-icon">🎖️</span>
+        <span class="stat-val" id="val-cp">100/100</span>
+      </div>
+    </div>
 
-<aside class="hud legend" id="legend" aria-label="Legenda"></aside>
+    <!-- Tensão Mundial -->
+    <div class="world-tension-badge" title="Tensão Mundial">
+      <div class="tension-circle">
+        <span id="tension-val">0%</span>
+      </div>
+      <span class="tension-label">TENSÃO</span>
+    </div>
 
-<div class="hud controls">
-  <div class="zoom">
-    <button id="zin" title="Aproximar" aria-label="Aproximar">+</button>
-    <button id="zout" title="Afastar" aria-label="Afastar">−</button>
-    <button id="zreset" title="Ver tudo" aria-label="Ver tudo">⌂</button>
+    <!-- Data e Velocidade do Jogo -->
+    <div class="clock-panel">
+      <div class="date-display" id="date-display">12:00, 1 Jan, 1936</div>
+      <div class="speed-controls">
+        <button id="btn-pause" class="btn-ctrl" title="Pausar (Espaço)">⏸</button>
+        <button class="btn-speed active" data-speed="1">1</button>
+        <button class="btn-speed" data-speed="2">2</button>
+        <button class="btn-speed" data-speed="3">3</button>
+        <button class="btn-speed" data-speed="4">4</button>
+        <button class="btn-speed" data-speed="5">5</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Painel de Informação do Estado (Estilo HOI4) -->
+  <aside class="state-window" id="state-window">
+    <div class="state-header">
+      <div class="state-title-block">
+        <h2 id="st-name">Brandenburg</h2>
+        <span class="st-category" id="st-category">Megalopolis</span>
+      </div>
+      <button class="btn-close" id="btn-close-state">✕</button>
+    </div>
+    
+    <div class="state-owner-banner">
+      <span class="owner-flag" id="st-flag">🇩🇪</span>
+      <div class="owner-info">
+        <span class="owner-label">Controlado por:</span>
+        <strong id="st-owner">German Reich</strong>
+      </div>
+    </div>
+
+    <div class="state-stats-grid">
+      <div class="st-stat">
+        <span class="st-stat-lbl">População:</span>
+        <span class="st-stat-num" id="st-manpower">7.26M</span>
+      </div>
+      <div class="st-stat">
+        <span class="st-stat-lbl">Pontos de Vitória:</span>
+        <span class="st-stat-num" id="st-vps">56 VP</span>
+      </div>
+      <div class="st-stat">
+        <span class="st-stat-lbl">Infraestrutura:</span>
+        <span class="st-stat-num" id="st-infra">Nível 5</span>
+      </div>
+      <div class="st-stat">
+        <span class="st-stat-lbl">Províncias:</span>
+        <span class="st-stat-num" id="st-prov-count">16</span>
+      </div>
+    </div>
+
+    <div class="vp-cities-box" id="vp-cities-box">
+      <h3>Cidades & Pontos de Vitória</h3>
+      <ul id="vp-list"></ul>
+    </div>
+  </aside>
+
+  <!-- Tooltip de Hover instantâneo -->
+  <div class="hover-tooltip" id="hover-tooltip">
+    <div class="tt-state" id="tt-state">Estado</div>
+    <div class="tt-sub" id="tt-sub">País • VP • Província</div>
   </div>
-  <div class="toggles">
-    <label><input type="checkbox" id="tProv" checked> Províncias</label>
-    <label><input type="checkbox" id="tBorders" checked> Estados</label>
-    <label><input type="checkbox" id="tNames" checked> Nomes</label>
-    <label><input type="checkbox" id="tCities" checked> Cidades</label>
-    <label><input type="checkbox" id="tGrid"> Grade</label>
-    <label><input type="checkbox" id="tTerrain" checked> Terreno</label>
-  </div>
-</div>
 
-<aside class="hud game" id="game" aria-label="Jogo">
-  <div class="gtop"><span id="gdate" class="gdate">22 jun 1941</span><span id="gspeed" class="gspeed">pausado</span></div>
-  <div class="gbtns">
-    <button id="gpause" title="Pausar (espaço)" aria-label="Pausar">⏸</button>
-    <button id="g1" title="Velocidade 1" aria-label="Velocidade 1">▶</button>
-    <button id="g2" title="Velocidade 2" aria-label="Velocidade 2">▶▶</button>
-    <button id="g3" title="Velocidade 3" aria-label="Velocidade 3">▶▶▶</button>
-  </div>
-  <label class="gside">Lado <select id="gside"></select></label>
-  <div class="gsel" id="gsel">Clique numa província sua com unidades e depois no destino.</div>
-</aside>
+  <!-- Controles de Visualização / Mapmodes -->
+  <footer class="bottom-bar">
+    <div class="mapmodes-dock">
+      <button class="btn-mode active" id="mode-political" title="Modo Político (F1)">🗺️ Político</button>
+      <button class="btn-mode" id="mode-terrain" title="Modo Terreno 3D (F2)">🏔️ Relevo</button>
+    </div>
 
-<div class="credit">Dados: Natural Earth (domínio público). Províncias geradas automaticamente; fronteiras de 1941 aproximadas. · Pressione <kbd>T</kbd> para alternar terreno</div>
+    <div class="zoom-tools">
+      <button id="btn-zoom-in" title="Aproximar">+</button>
+      <button id="btn-zoom-out" title="Afastar">−</button>
+      <button id="btn-zoom-reset" title="Centralizar Mapa">⌖</button>
+    </div>
+    
+    <div class="info-badge">
+      Hearts of Iron IV Original • 5632×2048 • 13.414 Províncias • 1.081 Estados
+    </div>
+  </footer>
 
-<noscript><p class="noscript">Este mapa precisa de JavaScript.</p></noscript>
-<script src="data/map-data.js"></script>
-<script src="map.js"></script>
-<script src="game.js"></script>
+  <script src="map.js"></script>
 </body>
 </html>
