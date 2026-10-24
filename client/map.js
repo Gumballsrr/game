@@ -135,6 +135,29 @@
   };
 
   function updateCamera() {
+    // WASD & Arrow Keys Pan
+    if (typeof keysDown !== 'undefined') {
+      const panFactor = camState.distance * 0.0045;
+      const fwd = new THREE.Vector3(Math.sin(camState.yaw), 0, Math.cos(camState.yaw));
+      const rgt = new THREE.Vector3(Math.cos(camState.yaw), 0, -Math.sin(camState.yaw));
+
+      if (keysDown['KeyW'] || keysDown['ArrowUp']) {
+        camState.target.addScaledVector(fwd, -panFactor);
+      }
+      if (keysDown['KeyS'] || keysDown['ArrowDown']) {
+        camState.target.addScaledVector(fwd, panFactor);
+      }
+      if (keysDown['KeyA'] || keysDown['ArrowLeft']) {
+        camState.target.addScaledVector(rgt, -panFactor);
+      }
+      if (keysDown['KeyD'] || keysDown['ArrowRight']) {
+        camState.target.addScaledVector(rgt, panFactor);
+      }
+
+      camState.target.x = Math.max(-PLANE_W / 2, Math.min(PLANE_W / 2, camState.target.x));
+      camState.target.z = Math.max(-PLANE_H / 2, Math.min(PLANE_H / 2, camState.target.z));
+    }
+
     // Smooth interpolation (Lerp)
     camState.current.lerp(camState.target, 0.14);
     camState.distance += (camState.targetDistance - camState.distance) * 0.14;
@@ -396,8 +419,19 @@
     btnPause.textContent = isPaused ? '▶' : '⏸';
   }
 
+  function setSpeed(spd) {
+    gameSpeed = spd;
+    speedPips.forEach(p => p.classList.toggle('active', parseInt(p.dataset.speed) <= spd));
+    clearInterval(timer);
+    const intervals = [1000, 650, 400, 220, 90];
+    timer = setInterval(updateClock, intervals[spd - 1]);
+  }
+
   btnPause.addEventListener('click', togglePause);
+
+  const keysDown = {};
   window.addEventListener('keydown', (e) => {
+    keysDown[e.code] = true;
     if (e.code === 'Space') {
       e.preventDefault();
       togglePause();
@@ -409,17 +443,22 @@
       modeTerrain.click();
     } else if (e.code === 'KeyT') {
       btnToggle3D.click();
+    } else if (e.code === 'NumpadAdd' || e.code === 'Equal') {
+      e.preventDefault();
+      setSpeed(Math.min(5, gameSpeed + 1));
+    } else if (e.code === 'NumpadSubtract' || e.code === 'Minus') {
+      e.preventDefault();
+      setSpeed(Math.max(1, gameSpeed - 1));
     }
+  });
+
+  window.addEventListener('keyup', (e) => {
+    keysDown[e.code] = false;
   });
 
   speedPips.forEach(pip => {
     pip.addEventListener('click', () => {
-      const spd = parseInt(pip.dataset.speed);
-      gameSpeed = spd;
-      speedPips.forEach(p => p.classList.toggle('active', parseInt(p.dataset.speed) <= spd));
-      clearInterval(timer);
-      const intervals = [1000, 650, 400, 220, 90];
-      timer = setInterval(updateClock, intervals[spd - 1]);
+      setSpeed(parseInt(pip.dataset.speed));
     });
   });
 
