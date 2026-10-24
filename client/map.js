@@ -1,62 +1,79 @@
 /**
- * Hearts of Iron IV - Central & Eastern European Theater 3D Engine
+ * Hearts of Iron IV - True Physical 3D Clausewitz Engine
  * Features:
- * - Direct 1:1 Province Lookup (1080x720) covering GER, SOV, HUN, ROM, FIN, POL
- * - Dynamic 60 FPS Province Selection & Hover Mesh (Glowing contours & gold highlights)
- * - Authentic Paradox Terrain Illustration Cards
- * - Clausewitz Camera with Smooth WASD & 3D Orbit Controls
+ * - Literal Physical 3D Geometry: Vertices are physically elevated from heightmap (Alps, Carpathians, Caucasus, Urals)
+ * - Physical 3D Forests (InstancedMesh pine trees that cast shadows across mountain slopes)
+ * - Physical 3D Cities (InstancedMesh urban buildings in Berlin, Moscow, Warsaw, Leningrad, etc.)
+ * - 3D Conforming Province Selection & Hover Contour Highlights
+ * - Atmospheric Fog & Dynamic Directional Sun Shadows
+ * - Tactical Zoom with 65° Horizon Pitch
  */
 (() => {
   'use strict';
 
   const container = document.getElementById('map-3d-wrapper');
 
-  // Dimensions of Theater
+  // Dimensions
   const MAP_W = 1080;
   const MAP_H = 720;
+  const GRID_W = 360;
+  const GRID_H = 240;
   const PLANE_W = 360.0;
   const PLANE_H = 240.0;
 
-  // Three.js Core
+  // Three.js Scene, Camera, Renderer
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x060c13);
+  scene.background = new THREE.Color(0x0a1420);
+  // Atmospheric depth fog (mountains in the distance fade into atmospheric mist like HOI4)
+  scene.fog = new THREE.FogExp2(0x0a1420, 0.0032);
 
   const camera = new THREE.PerspectiveCamera(
-    45,
+    48,
     window.innerWidth / window.innerHeight,
-    1,
-    12000
+    0.5,
+    15000
   );
 
   const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.08;
+  renderer.toneMappingExposure = 1.12;
   renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   container.appendChild(renderer.domElement);
 
-  // Lighting (Clausewitz NW Directional Sun + Cold Ambient)
-  const ambientLight = new THREE.AmbientLight(0xdbe6f2, 0.72);
+  // Lighting (Clausewitz NW Directional Sun + Cold Sky Ambient)
+  const ambientLight = new THREE.AmbientLight(0xdbe6f5, 0.65);
   scene.add(ambientLight);
 
-  const sunLight = new THREE.DirectionalLight(0xfff5e4, 1.25);
-  sunLight.position.set(-250, 450, 280);
+  const sunLight = new THREE.DirectionalLight(0xfff6e8, 1.35);
+  sunLight.position.set(-220, 380, 240);
   sunLight.castShadow = true;
+  sunLight.shadow.mapSize.width = 2048;
+  sunLight.shadow.mapSize.height = 2048;
+  sunLight.shadow.camera.near = 10;
+  sunLight.shadow.camera.far = 1000;
+  sunLight.shadow.camera.left = -220;
+  sunLight.shadow.camera.right = 220;
+  sunLight.shadow.camera.top = 180;
+  sunLight.shadow.camera.bottom = -180;
+  sunLight.shadow.bias = -0.0006;
   scene.add(sunLight);
 
-  const skyFill = new THREE.DirectionalLight(0x6080a0, 0.35);
-  skyFill.position.set(180, 220, -150);
-  scene.add(skyFill);
+  const fillLight = new THREE.DirectionalLight(0x557595, 0.45);
+  fillLight.position.set(150, 180, -120);
+  scene.add(fillLight);
 
-  // Mesh & Material variables
+  // Mesh & Materials
   let terrainMesh = null;
+  let terrainGeometry = null;
   let terrainMaterial = null;
   let texPolitical = null;
   let texSatellite = null;
   let currentMapmode = 'political';
 
-  // Province Highlight Layer (Dynamic 2D Canvas mapped onto 3D plane)
+  // Province Highlight Layer (Conforms to 3D terrain elevation)
   const hlCanvas = document.createElement('canvas');
   hlCanvas.width = MAP_W;
   hlCanvas.height = MAP_H;
@@ -97,13 +114,14 @@
   const btnZoomReset = document.getElementById('btn-zoom-reset');
 
   // Datasets
-  let provLookup = null;       // Uint16Array (1080 * 720)
-  let provMeta = {};           // Province dictionary
-  let provBounds = {};         // Province bounding boxes
+  let provLookup = null;
+  let provMeta = {};
+  let provBounds = {};
   let statesData = {};
+  let elevations = null;
 
   let hoveredPid = 0;
-  let selectedPid = 6521;      // Default selected: Berlin (#6521)
+  let selectedPid = 6521; // Berlin
 
   // Flag resolver
   function getFlagUrl(tag) {
@@ -123,7 +141,6 @@
     return known[tag] || 'gfx/flags/GER_fascism.png';
   }
 
-  // Terrain Banner resolver
   function getTerrainBannerUrl(terrain) {
     const map = {
       urban: 'gfx/interface/terrains/terrain_urban.png',
@@ -138,20 +155,19 @@
   }
 
   // -------------------------------------------------------------
-  // CLAUSEWITZ CAMERA CONTROLLER
+  // CLAUSEWITZ PHYSICAL CAMERA CONTROLLER
   // -------------------------------------------------------------
   const camState = {
-    // Initial center on Berlin - Warsaw axis
-    target: new THREE.Vector3(-45, 0, 15),
-    current: new THREE.Vector3(-45, 0, 15),
-    distance: 160,
-    targetDistance: 160,
-    minDistance: 20,
-    maxDistance: 380,
-    pitch: 0.45,
-    targetPitch: 0.45,
+    target: new THREE.Vector3(-45, 2, 15),
+    current: new THREE.Vector3(-45, 2, 15),
+    distance: 140,
+    targetDistance: 140,
+    minDistance: 14,
+    maxDistance: 360,
+    pitch: 0.52,
+    targetPitch: 0.52,
     minPitch: 0.05,
-    maxPitch: 1.15,
+    maxPitch: 1.18, // ~68 degrees tilt
     yaw: 0.0,
     targetYaw: 0.0,
     is3DActive: true
@@ -186,7 +202,7 @@
 
   function updateCamera() {
     // WASD & Arrow Keys Pan
-    const panFactor = camState.distance * 0.0045;
+    const panFactor = camState.distance * 0.0042;
     const fwd = new THREE.Vector3(Math.sin(camState.yaw), 0, Math.cos(camState.yaw));
     const rgt = new THREE.Vector3(Math.cos(camState.yaw), 0, -Math.sin(camState.yaw));
 
@@ -211,9 +227,11 @@
     camState.distance += (camState.targetDistance - camState.distance) * 0.14;
     camState.yaw += (camState.targetYaw - camState.yaw) * 0.14;
 
+    // Automatic physical zoom tilt curve
     if (camState.is3DActive) {
       const zoomRatio = 1.0 - (camState.distance - camState.minDistance) / (camState.maxDistance - camState.minDistance);
-      const autoPitch = 0.18 + Math.pow(Math.max(0, zoomRatio), 0.75) * 0.85;
+      // Closer zoom tilts down to 65 degrees so mountains rise into the horizon!
+      const autoPitch = 0.22 + Math.pow(Math.max(0, zoomRatio), 0.72) * 0.94;
       camState.targetPitch = Math.min(camState.maxPitch, autoPitch);
     } else {
       camState.targetPitch = 0.04;
@@ -233,7 +251,7 @@
     camera.lookAt(camState.current);
   }
 
-  // Mouse drag handling
+  // Mouse Drag Handling
   let isDragging = false;
   let dragButton = 0;
   let prevMouseX = 0, prevMouseY = 0;
@@ -289,7 +307,7 @@
   }, { passive: false });
 
   // -------------------------------------------------------------
-  // PROVINCE RAYCASTING & 60 FPS HIGHLIGHT RENDERER
+  // RAYCASTING & 3D PROVINCE HIGHLIGHT
   // -------------------------------------------------------------
   const raycaster = new THREE.Raycaster();
   const mouseVec = new THREE.Vector2();
@@ -303,24 +321,23 @@
     return hits.length > 0 ? hits[0] : null;
   }
 
-  // Draw province highlight into dynamic canvas texture
   function redrawHighlights() {
     hlCtx.clearRect(0, 0, MAP_W, MAP_H);
 
-    // 1. Draw Selected Province (Golden Contour & Warm Overlay)
+    // 1. Draw Selected Province (Gold Outline & Gold Pulse Fill)
     if (selectedPid > 0 && provBounds[selectedPid]) {
-      drawProvinceShape(selectedPid, 'rgba(255, 215, 60, 0.95)', 'rgba(255, 215, 60, 0.35)', true);
+      drawProvinceShape(selectedPid, true);
     }
 
-    // 2. Draw Hovered Province (Crisp White/Cyan Contour & Soft Wash)
+    // 2. Draw Hovered Province (Crisp Cyan-White Outline)
     if (hoveredPid > 0 && hoveredPid !== selectedPid && provBounds[hoveredPid]) {
-      drawProvinceShape(hoveredPid, 'rgba(240, 250, 255, 0.95)', 'rgba(180, 220, 255, 0.22)', false);
+      drawProvinceShape(hoveredPid, false);
     }
 
     hlTexture.needsUpdate = true;
   }
 
-  function drawProvinceShape(pid, strokeColor, fillColor, isSelected) {
+  function drawProvinceShape(pid, isSelected) {
     const b = provBounds[pid].box;
     const minX = Math.max(0, b[0] - 1);
     const minY = Math.max(0, b[1] - 1);
@@ -332,20 +349,18 @@
     const imgData = hlCtx.getImageData(minX, minY, bw, bh);
     const data = imgData.data;
 
-    // Parse colors
     const strokeR = isSelected ? 255 : 240;
     const strokeG = isSelected ? 215 : 250;
     const strokeB = isSelected ? 60 : 255;
     const fillR = isSelected ? 255 : 180;
     const fillG = isSelected ? 215 : 220;
     const fillB = isSelected ? 60 : 255;
-    const fillA = isSelected ? 80 : 50;
+    const fillA = isSelected ? 85 : 45;
 
     for (let y = minY; y <= maxY; y++) {
       for (let x = minX; x <= maxX; x++) {
         const curPid = provLookup[y * MAP_W + x];
         if (curPid === pid) {
-          // Check if boundary pixel
           const isEdge =
             x === 0 || x === MAP_W - 1 || y === 0 || y === MAP_H - 1 ||
             provLookup[y * MAP_W + (x - 1)] !== pid ||
@@ -358,7 +373,7 @@
             data[idx] = strokeR;
             data[idx + 1] = strokeG;
             data[idx + 2] = strokeB;
-            data[idx + 3] = 240;
+            data[idx + 3] = 245;
           } else {
             data[idx] = fillR;
             data[idx + 1] = fillG;
@@ -421,7 +436,6 @@
     }
   }
 
-  // Click handler: Select Province & Show State details
   window.addEventListener('click', (e) => {
     if (e.target !== renderer.domElement) return;
     const hit = getRayIntersection(e.clientX, e.clientY);
@@ -451,7 +465,6 @@
     stOwnerName.textContent = `${st.country_name} (${st.owner})`;
     stFlagImg.src = getFlagUrl(st.owner);
 
-    // Update Terrain Banner
     if (activePid && provMeta[activePid]) {
       stTerrainBanner.src = getTerrainBannerUrl(provMeta[activePid].terrain);
     } else {
@@ -518,8 +531,8 @@
     camState.targetDistance = Math.min(camState.maxDistance, camState.targetDistance * 1.4);
   });
   btnZoomReset.addEventListener('click', () => {
-    camState.target.set(-45, 0, 15);
-    camState.targetDistance = 160;
+    camState.target.set(-45, 2, 15);
+    camState.targetDistance = 140;
     camState.targetYaw = 0.0;
   });
 
@@ -565,67 +578,149 @@
   });
 
   // -------------------------------------------------------------
-  // INITIALIZATION
+  // INITIALIZATION: BUILD PHYSICAL 3D MESH & INSTANCES
   // -------------------------------------------------------------
   async function init() {
     const texLoader = new THREE.TextureLoader();
 
-    // 1. Load Theater Political & Satellite Textures
+    // 1. Textures
     texPolitical = await new Promise(res => texLoader.load('data/theater_political_map.jpg', res));
     texPolitical.anisotropy = renderer.capabilities.getMaxAnisotropy();
 
     texSatellite = await new Promise(res => texLoader.load('data/theater_satellite_map.jpg', res));
     texSatellite.anisotropy = renderer.capabilities.getMaxAnisotropy();
 
-    // 2. Load 3D Elevation Displacement & Normal Map
-    const texHeight = await new Promise(res => texLoader.load('data/theater_heightmap.jpg', res));
     const texNormal = await new Promise(res => texLoader.load('data/theater_normal.jpg', res));
 
-    // 3. Create 3D Terrain Plane Geometry
-    const geometry = new THREE.PlaneGeometry(PLANE_W, PLANE_H, 270, 180);
-    geometry.rotateX(-Math.PI / 2);
+    // 2. Load Physical Height Grid
+    const elevResp = await fetch('data/theater_elevations.bin');
+    const elevBuf = await elevResp.arrayBuffer();
+    elevations = new Float32Array(elevBuf);
+
+    // 3. Create PHYSICAL 3D Vertex Geometry
+    terrainGeometry = new THREE.PlaneGeometry(PLANE_W, PLANE_H, GRID_W - 1, GRID_H - 1);
+    terrainGeometry.rotateX(-Math.PI / 2);
+
+    const posAttr = terrainGeometry.attributes.position;
+    // Set literal physical Y coordinate for each vertex!
+    for (let i = 0; i < posAttr.count; i++) {
+      const yVal = elevations[i] || 0.0;
+      posAttr.setY(i, yVal);
+    }
+    posAttr.needsUpdate = true;
+    terrainGeometry.computeVertexNormals();
 
     terrainMaterial = new THREE.MeshStandardMaterial({
       map: texPolitical,
-      displacementMap: texHeight,
-      displacementScale: 12.0,
-      displacementBias: -1.0,
       normalMap: texNormal,
-      normalScale: new THREE.Vector2(0.9, 0.9),
-      roughness: 0.68,
-      metalness: 0.08
+      normalScale: new THREE.Vector2(1.15, 1.15),
+      roughness: 0.65,
+      metalness: 0.06
     });
 
-    terrainMesh = new THREE.Mesh(geometry, terrainMaterial);
+    terrainMesh = new THREE.Mesh(terrainGeometry, terrainMaterial);
     terrainMesh.receiveShadow = true;
+    terrainMesh.castShadow = true;
     scene.add(terrainMesh);
 
-    // 4. Interactive Province Highlight Layer Mesh (Positioned just above terrain)
-    const hlGeo = new THREE.PlaneGeometry(PLANE_W, PLANE_H, 270, 180);
-    hlGeo.rotateX(-Math.PI / 2);
+    // 4. Highlight Mesh (Shares exact physical 3D geometry elevated slightly)
+    const hlGeometry = terrainGeometry.clone();
+    const hlPos = hlGeometry.attributes.position;
+    for (let i = 0; i < hlPos.count; i++) {
+      hlPos.setY(i, hlPos.getY(i) + 0.12); // Conform to physical mountain slopes
+    }
+    hlPos.needsUpdate = true;
+
     const hlMat = new THREE.MeshBasicMaterial({
       map: hlTexture,
       transparent: true,
       depthWrite: false,
       blending: THREE.NormalBlending
     });
-    hlMesh = new THREE.Mesh(hlGeo, hlMat);
-    hlMesh.position.y = 0.35; // Slight offset above terrain
+    hlMesh = new THREE.Mesh(hlGeometry, hlMat);
     scene.add(hlMesh);
 
-    // 5. Water Plane underneath land
-    const waterGeo = new THREE.PlaneGeometry(PLANE_W * 1.05, PLANE_H * 1.05);
+    // 5. Physical Water Surface Plane at Y = 0.0
+    const waterGeo = new THREE.PlaneGeometry(PLANE_W * 1.1, PLANE_H * 1.1, 64, 64);
     waterGeo.rotateX(-Math.PI / 2);
     const waterMat = new THREE.MeshStandardMaterial({
-      color: 0x0e1b28,
-      roughness: 0.12,
-      metalness: 0.85
+      color: 0x0c1e2d,
+      roughness: 0.1,
+      metalness: 0.88
     });
     const waterMesh = new THREE.Mesh(waterGeo, waterMat);
-    waterMesh.position.y = -0.5;
+    waterMesh.position.y = -0.15;
     scene.add(waterMesh);
 
-    // 6. Load Datasets
+    // 6. Physical 3D Pine Trees (InstancedMesh)
+    try {
+      const treeResp = await fetch('data/theater_trees.json');
+      const treeData = await treeResp.json();
+
+      // Stylized pine tree geometry: Brown trunk + Layered dark evergreen foliage cone
+      const pineGeo = new THREE.ConeGeometry(0.65, 1.5, 5);
+      pineGeo.translate(0, 0.75, 0);
+
+      const treeMat = new THREE.MeshStandardMaterial({
+        color: 0x1a3822, // Dark military spruce/pine
+        roughness: 0.9,
+        metalness: 0.05
+      });
+
+      const treeInstMesh = new THREE.InstancedMesh(pineGeo, treeMat, treeData.length);
+      treeInstMesh.castShadow = true;
+      treeInstMesh.receiveShadow = true;
+
+      const dummy = new THREE.Object3D();
+      for (let i = 0; i < treeData.length; i++) {
+        const t = treeData[i];
+        dummy.position.set(t.x, t.y, t.z);
+        dummy.scale.set(t.s, t.s * (0.85 + Math.random() * 0.3), t.s);
+        dummy.rotation.y = Math.random() * Math.PI * 2;
+        dummy.updateMatrix();
+        treeInstMesh.setMatrixAt(i, dummy.matrix);
+      }
+      treeInstMesh.instanceMatrix.needsUpdate = true;
+      scene.add(treeInstMesh);
+      console.log(`Spawned ${treeData.length} physical 3D pine trees on terrain slopes.`);
+    } catch (e) {
+      console.warn('Could not load physical tree instances:', e);
+    }
+
+    // 7. Physical 3D City Buildings (InstancedMesh)
+    try {
+      const cityResp = await fetch('data/theater_cities.json');
+      const cityData = await cityResp.json();
+
+      const bldGeo = new THREE.BoxGeometry(1, 1, 1);
+      bldGeo.translate(0, 0.5, 0);
+      const bldMat = new THREE.MeshStandardMaterial({
+        color: 0xc4b69c, // Classic European stone architecture
+        roughness: 0.65,
+        metalness: 0.2
+      });
+
+      const cityInstMesh = new THREE.InstancedMesh(bldGeo, bldMat, cityData.length);
+      cityInstMesh.castShadow = true;
+      cityInstMesh.receiveShadow = true;
+
+      const dummy = new THREE.Object3D();
+      for (let i = 0; i < cityData.length; i++) {
+        const b = cityData[i];
+        dummy.position.set(b.x, b.y, b.z);
+        dummy.scale.set(b.w, b.h, b.d);
+        dummy.rotation.y = Math.random() * 0.5;
+        dummy.updateMatrix();
+        cityInstMesh.setMatrixAt(i, dummy.matrix);
+      }
+      cityInstMesh.instanceMatrix.needsUpdate = true;
+      scene.add(cityInstMesh);
+      console.log(`Spawned ${cityData.length} physical 3D urban buildings across major capitals.`);
+    } catch (e) {
+      console.warn('Could not load physical city instances:', e);
+    }
+
+    // 8. Load Metadata and Province Lookup
     try {
       const [binResp, provResp, boundsResp, statesResp] = await Promise.all([
         fetch('data/theater_prov_lookup.bin'),
@@ -640,20 +735,22 @@
       provBounds = await boundsResp.json();
       statesData = await statesResp.json();
 
-      console.log('Central/Eastern Theater Loaded: 4012 Active Provinces');
       redrawHighlights();
 
-      // Show Berlin by default in state window
       if (statesData["64"]) {
         showStateDetails(statesData["64"], 6521);
       }
     } catch (err) {
-      console.error('Failed to load theater data files:', err);
+      console.error('Failed to load metadata:', err);
     }
 
-    // 60 FPS Render Loop
+    // Subtle water animation & 60 FPS Render Loop
+    let clock = new THREE.Clock();
     function renderLoop() {
       requestAnimationFrame(renderLoop);
+      const elapsed = clock.getElapsedTime();
+      waterMesh.position.y = -0.15 + Math.sin(elapsed * 1.5) * 0.04;
+
       updateCamera();
       renderer.render(scene, camera);
     }
